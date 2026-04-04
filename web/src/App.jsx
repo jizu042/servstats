@@ -110,6 +110,12 @@ export default function App() {
   useEffect(() => {
     const params    = new URLSearchParams(window.location.search)
     const authParam = params.get('auth')
+    const token     = params.get('token')
+
+    if (token) {
+      localStorage.setItem('auth_token', token)
+    }
+
     if (!authParam) return
     const merged = { ...DEFAULTS, ...readJson(K.settings, {}) }
     const tr     = getT(merged.lang)

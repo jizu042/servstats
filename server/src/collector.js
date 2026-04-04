@@ -9,23 +9,31 @@ const retentionDays = Math.max(1, Number(process.env.STATS_RAW_RETENTION_DAYS ||
 const prevPlayers = {} // key: `host:port`, value: Set<nick>
 let lastRetentionRun = 0
 
-/** Start the background collector loop if MONITOR_SERVERS is provided */
+/** Start the background collector loop if MONITOR_SERVERS is provided or dynamically sync from DB */
 export function startCollector(pool) {
-  const serversRaw = process.env.MONITOR_SERVERS || ''
-  const servers    = parseServers(serversRaw)
+  const envServers = parseServers(process.env.MONITOR_SERVERS || '')
 
-  if (servers.length === 0) {
-    console.log('[collector] disabled: MONITOR_SERVERS env is empty')
-    return
-  }
-
-  console.log(`[collector] starting. Interval: ${Math.round(interval / 1000 / 60)}m. Servers:`, servers.map((s) => `${s.host}:${s.port}`).join(', '))
+  console.log(`[collector] starting. Interval: ${Math.round(interval / 1000 / 60)}m.`)
 
   // Run first tick after 5s to avoid interfering with server startup
   setTimeout(async () => {
-    await tick(pool, servers)
-    setInterval(() => tick(pool, servers), interval)
+    await doTick(pool, envServers)
+    setInterval(() => doTick(pool, envServers), interval)
   }, 5000)
+}
+
+async function doTick(pool, envServers) {
+  let servers = envServers
+  if (servers.length === 0) {
+    try {
+      const q = await pool.query('SELECT host, port FROM servers ORDER BY updated_at DESC LIMIT 10')
+      servers = q.rows.map(r => ({ host: r.host, port: r.port }))
+      if (servers.length === 0) servers = [{ host: 'play.hypixel.net', port: 25565 }]
+    } catch {
+      servers = [{ host: 'play.hypixel.net', port: 25565 }]
+    }
+  }
+  await tick(pool, servers)
 }
 
 async function tick(pool, servers) {

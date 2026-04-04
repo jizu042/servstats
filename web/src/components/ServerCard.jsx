@@ -30,7 +30,8 @@ export default function ServerCard({ server, onlineSince, sessions, onPlayerClic
   const l      = labels || {}
   const online = Boolean(server?.online)
   const motd   = stripMcCodes(server?.motd?.clean || server?.motd?.raw || server?.motd || '')
-  const motdLine2 = stripMcCodes(server?.motd?.clean?.split('\n')?.[1] || '')
+  const cleanMotd = server?.motd?.clean || ''
+  const motdLine2 = stripMcCodes(cleanMotd.split('\n')?.[1] || '')
 
   const list       = server?.players?.list || []
   const listHidden = Boolean(server?.players?.listHidden)

@@ -161,42 +161,45 @@ app.get('/api/auth/ely/start', (req, res) => {
 })
 
 app.get('/api/auth/ely/callback', async (req, res) => {
-  const code        = String(req.query.code || '')
-  const state       = String(req.query.state || '')
-  const clientId    = process.env.ELY_OAUTH_CLIENT_ID
-  const clientSecret = process.env.ELY_OAUTH_CLIENT_SECRET
-  const redirectUri = process.env.ELY_OAUTH_REDIRECT_URI
-  if (!code) return redirectToFrontend(res, { auth: 'error', reason: 'missing_code' })
-  if (!clientId || !clientSecret || !redirectUri) return redirectToFrontend(res, { auth: 'error', reason: 'oauth_not_configured' })
-
+  const { code, state } = req.query
+  if (!code) return redirectToFrontend(res, { auth: 'error', reason: 'no_code' })
   const cookies = readCookies(req)
+  // If state doesn't match, it could be a cross-origin cookie block, but Ely redirect is same-site Lax compliant.
   if (!state || state !== cookies[OAUTH_STATE_COOKIE]) return redirectToFrontend(res, { auth: 'error', reason: 'invalid_state' })
+
+  const clientId     = process.env.ELY_OAUTH_CLIENT_ID
+  const clientSecret = process.env.ELY_OAUTH_CLIENT_SECRET
+  const redirectUri  = process.env.ELY_OAUTH_REDIRECT_URI
 
   try {
     const tokenRes = await fetch('https://account.ely.by/api/oauth2/v1/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: redirectUri, client_id: clientId, client_secret: clientSecret }),
-      signal: AbortSignal.timeout(8000)
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri
+      })
     })
-    if (!tokenRes.ok) return redirectToFrontend(res, { auth: 'error', reason: 'token_exchange' })
-    const token = await tokenRes.json()
+    const data = await tokenRes.json()
+    if (!data.access_token) return redirectToFrontend(res, { auth: 'error', reason: 'token_exchange_failed' })
+
     const userRes = await fetch('https://account.ely.by/api/account/v1/info', {
-      headers: { Authorization: `Bearer ${token?.access_token}` },
-      signal: AbortSignal.timeout(8000)
+      headers: { Authorization: `Bearer ${data.access_token}` }
     })
-    if (!userRes.ok) return redirectToFrontend(res, { auth: 'error', reason: 'userinfo' })
-    const profile = await userRes.json()
-    const nick    = String(profile?.username || profile?.name || '').trim().slice(0, 24)
-    if (!nick) return redirectToFrontend(res, { auth: 'error', reason: 'missing_username' })
+    const userData = await userRes.json()
+    const nick = userData.username || userData.name
+    if (!nick) return redirectToFrontend(res, { auth: 'error', reason: 'no_username' })
 
     const session = makeSessionToken({ nick, iat: Date.now() })
     clearCookie(res, OAUTH_STATE_COOKIE)
     setCookie(res, SESSION_COOKIE, session, { maxAge: 60 * 60 * 24 * 7 })
-    return redirectToFrontend(res, { auth: 'ok' })
-  } catch (e) {
-    console.error('[oauth] error', e?.message || e)
-    return redirectToFrontend(res, { auth: 'error', reason: 'callback_failed' })
+    return redirectToFrontend(res, { auth: 'ok', token: session })
+  } catch (err) {
+    console.error('Ely.by OAuth error:', err)
+    return redirectToFrontend(res, { auth: 'error', reason: 'oauth_internal_error' })
   }
 })
 
@@ -469,5 +472,10 @@ function verifySessionToken(t) {
   try { return JSON.parse(Buffer.from(b, 'base64url').toString('utf8')) } catch { return null }
 }
 function getUserFromRequest(req) {
+  const authHeader = req.headers.authorization
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const t = verifySessionToken(authHeader.substring(7))
+    if (t) return t
+  }
   return verifySessionToken(readCookies(req)[SESSION_COOKIE])
 }
