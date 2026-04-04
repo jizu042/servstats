@@ -9,6 +9,6 @@
   },
   "dependencies": {
     "pg": "^8.12.0",
-    "minecraft-server-util": "^5.5.0"
+    "minecraft-server-util": "^5.4.4"
   }
 }
