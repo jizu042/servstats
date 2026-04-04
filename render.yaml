@@ -39,7 +39,7 @@ services:
           name: mc-monitor-redis
           property: connectionString
 
-  - type: static
+  - type: static_site
     name: mc-monitor-web
     rootDir: web
     buildCommand: npm ci && npm run build
