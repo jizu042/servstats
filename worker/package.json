@@ -1,0 +1,13 @@
+{
+  "name": "worker",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "node -e \"console.log('build ok')\"",
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "pg": "^8.12.0"
+  }
+}

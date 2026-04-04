@@ -1,0 +1,51 @@
+import { useMemo, useState } from 'react'
+
+export default function ChatPanel({ profile, messages, onSend, onLogin, onLogout, authEnabled, labels }) {
+  const l = labels || {
+    title: 'Chat',
+    signedInAs: 'Signed in as',
+    logout: 'Logout',
+    oauthNotConfigured: 'OAuth not configured. Demo mode enabled.',
+    signInPrompt: 'Sign in via ely.by to link your nickname',
+    loginEly: 'Login via ely.by',
+    messagePlaceholder: 'Message...',
+    send: 'Send'
+  }
+  const [text, setText] = useState('')
+  const avatar = useMemo(() => profile?.nick ? `https://craft.ely.by/api/player/head/${encodeURIComponent(profile.nick)}` : '', [profile])
+
+  return (
+    <section className="card">
+      <h3>{l.title}</h3>
+      {profile?.nick && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <div className="muted">{l.signedInAs} <b>{profile.nick}</b></div>
+          {onLogout && <button onClick={onLogout}>{l.logout}</button>}
+        </div>
+      )}
+      {!profile?.nick && (
+        <div>
+          <p className="muted">{authEnabled ? l.signInPrompt : l.oauthNotConfigured}</p>
+          {onLogin && authEnabled && <button onClick={onLogin}>{l.loginEly}</button>}
+        </div>
+      )}
+      <div className="chat-list">
+        {messages.map((m, i) => (
+          <div className="chat-item" key={i}>
+            <img src={`https://craft.ely.by/api/player/head/${encodeURIComponent(m.nick)}`} alt={m.nick} />
+            <div>
+              <b>{m.nick}</b>
+              <p>{m.text}</p>
+              <small className="muted mono">{m.ts ? new Date(m.ts).toLocaleTimeString() : ''}</small>
+            </div>
+          </div>
+        ))}
+      </div>
+      <form className="chat-form" onSubmit={(e) => { e.preventDefault(); if (!text.trim()) return; onSend(text); setText('') }}>
+        <img src={avatar || 'https://craft.ely.by/api/player/head/Steve'} alt="me" />
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder={l.messagePlaceholder} />
+        <button type="submit">{l.send}</button>
+      </form>
+    </section>
+  )
+}
