@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 
-export default function ChatPanel({ profile, messages, onSend, onLogin, onLogout, authEnabled, labels, authError }) {
+export default function ChatPanel({ profile, messages, onSend, onLogin, onLogout, authEnabled, labels, authError, onNickClick }) {
   const l = labels || {
     title: 'Chat',
     subtitle: 'Global realtime chat',
@@ -27,7 +27,10 @@ export default function ChatPanel({ profile, messages, onSend, onLogin, onLogout
       </div>
       {profile?.nick && (
         <div className="chat-auth-row">
-          <div className="muted">{l.signedInAs} <b>{profile.nick}</b></div>
+          <div className="muted chat-profile-inline">
+            <img src={`https://craft.ely.by/api/player/head/${encodeURIComponent(profile.nick)}`} alt={profile.nick} />
+            <span>{l.signedInAs} <b>{profile.nick}</b></span>
+          </div>
           {onLogout && <button onClick={onLogout}>{l.logout}</button>}
         </div>
       )}
@@ -44,7 +47,9 @@ export default function ChatPanel({ profile, messages, onSend, onLogin, onLogout
           <div className="chat-item" key={i}>
             <img src={`https://craft.ely.by/api/player/head/${encodeURIComponent(m.nick)}`} alt={m.nick} />
             <div>
-              <b>{m.nick}</b>
+              <button type="button" className="chat-nick-btn" onClick={() => onNickClick?.(m.nick)}>
+                <span>{m.nick}</span>
+              </button>
               <p className="chat-text">{m.text}</p>
               <small className="muted mono">{m.ts ? new Date(m.ts).toLocaleTimeString() : ''}</small>
             </div>

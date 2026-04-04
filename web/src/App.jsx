@@ -285,6 +285,7 @@ export default function App() {
           authEnabled={auth?.enabled}
           authError={authError}
           labels={t.chat}
+          onNickClick={setActiveNick}
           onLogin={async () => {
             try {
               const start = await requestElyStart(API_BASE)

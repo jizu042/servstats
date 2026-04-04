@@ -117,11 +117,21 @@ body::after {
 .chat-head h3 { margin: 0; }
 .chat-subtitle { margin: 4px 0 0; font-size: 13px; }
 .chat-auth-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.chat-profile-inline { display: inline-flex; align-items: center; gap: 7px; }
+.chat-profile-inline img { width: 18px; height: 18px; border-radius: 5px; border: 1px solid var(--border); }
 .chat-item { display: flex; gap: 8px; align-items: flex-start; border: 1px solid var(--border); border-radius: 10px; padding: 7px; background: rgba(255,255,255,0.02); }
 .chat-item img, .chat-form img { width: 24px; height: 24px; border-radius: 6px; }
 .chat-form { display: flex; gap: 8px; }
 .chat-form input { flex: 1; }
 .chat-card { max-width: 100%; }
+.chat-nick-btn {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+}
 
 input, select, button {
   background: rgba(255,255,255,0.03);
@@ -169,7 +179,10 @@ input:focus, select:focus { outline: none; border-color: rgba(74, 222, 128, 0.55
 .modal-backdrop { z-index: 60; }
 .modal { width: min(680px, 100%); max-height: 90vh; overflow: auto; background: #121826; border: 1px solid var(--border); border-radius: 16px; padding: 16px; position: relative; }
 .close { position: absolute; right: 10px; top: 10px; }
-.skin-render { width: 100%; height: 320px; border: 1px solid var(--border); border-radius: 12px; }
+.player-title { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; }
+.player-title img { width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--border); }
+.skin-render-wrap { border: 1px solid var(--border); border-radius: 12px; background: rgba(255,255,255,0.02); overflow: hidden; }
+.skin-render { display: block; width: 100%; height: 320px; }
 .placeholder { margin-top: 12px; padding: 8px; border: 1px dashed var(--border); border-radius: 10px; color: var(--muted); }
 
 .fade-in { animation: fadeIn .3s ease-out; }
@@ -187,4 +200,13 @@ input:focus, select:focus { outline: none; border-color: rgba(74, 222, 128, 0.55
   .stats-grid, .metrics { grid-template-columns: 1fr; }
   .server-ident h2 { max-width: 68vw; font-size: 18px; }
   .settings-drawer { width: 100%; }
+  .chat-auth-row { gap: 8px; align-items: flex-start; flex-direction: column; }
+  .chat-form { display: grid; grid-template-columns: 28px 1fr auto; }
+  .skin-render { height: 260px; }
+}
+
+@media (max-width: 480px) {
+  .modal { padding: 12px; }
+  .skin-render { height: 220px; }
+  .chat-item { padding: 6px; }
 }
