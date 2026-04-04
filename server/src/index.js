@@ -4,6 +4,7 @@ import cors from 'cors'
 import crypto from 'node:crypto'
 import { closeDb, connectRedis, hasDb, hasRedis, pool, redis } from './db.js'
 import util from 'minecraft-server-util'
+import { startCollector } from './collector.js'
 
 const app = express()
 const PORT = Number(process.env.PORT || 8787)
@@ -573,6 +574,9 @@ async function bootstrap() {
     await redisSubscriber.subscribe('chat:messages', (message) => {
       try { broadcastChat(JSON.parse(message)) } catch { /* ignore */ }
     })
+  }
+  if (hasDb && pool && process.env.MONITOR_SERVERS) {
+    startCollector(pool)
   }
 }
 

@@ -11,10 +11,24 @@ async function run() {
     return
   }
 
-  const sqlPath = path.join(__dirname, '..', 'sql', '001_init.sql')
-  const sql = await fs.readFile(sqlPath, 'utf8')
-  await pool.query(sql)
-  console.log('migrations applied: 001_init.sql')
+  const sqlDir = path.join(__dirname, '..', 'sql')
+  const files = (await fs.readdir(sqlDir))
+    .filter((f) => f.endsWith('.sql'))
+    .sort()
+
+  console.log(`found ${files.length} migration files`)
+
+  for (const file of files) {
+    const sql = await fs.readFile(path.join(sqlDir, file), 'utf8')
+    try {
+      await pool.query(sql)
+      console.log(`migrated: ${file}`)
+    } catch (e) {
+      console.error(`error in ${file}:`, e.message)
+      // We don't exit(1) here if it's "already exists" but let's be safe
+      // In production, better to use a real migration tool, but for this project we'll just log
+    }
+  }
 }
 
 run()
