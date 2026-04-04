@@ -44,7 +44,10 @@ export const I18N = {
       messagePlaceholder: 'Сообщение...',
       send: 'Отправить',
       empty: 'Пока нет сообщений',
-      authNotReady: 'Авторизация через ely.by пока не настроена на сервере'
+      authNotReady: 'Авторизация через ely.by пока не настроена на сервере',
+      loadError: 'Не удалось загрузить историю чата',
+      sendError: 'Не удалось отправить сообщение',
+      reconnecting: 'Переподключение realtime…'
     },
     player: {
       currentSession: 'Текущая сессия',
@@ -99,7 +102,10 @@ export const I18N = {
       messagePlaceholder: 'Message...',
       send: 'Send',
       empty: 'No messages yet',
-      authNotReady: 'ely.by OAuth is not configured on the backend yet'
+      authNotReady: 'ely.by OAuth is not configured on the backend yet',
+      loadError: 'Failed to load chat history',
+      sendError: 'Failed to send message',
+      reconnecting: 'Reconnecting realtime…'
     },
     player: {
       currentSession: 'Current session',

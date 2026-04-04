@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 
-export default function ChatPanel({ profile, messages, onSend, onLogin, onLogout, authEnabled, labels, authError, onNickClick }) {
+export default function ChatPanel({ profile, messages, onSend, onLogin, onLogout, authEnabled, labels, authError, onNickClick, chatLoading, chatError, sending, sseState, canSend }) {
   const l = labels || {
     title: 'Chat',
     subtitle: 'Global realtime chat',
@@ -12,7 +12,10 @@ export default function ChatPanel({ profile, messages, onSend, onLogin, onLogout
     messagePlaceholder: 'Message...',
     send: 'Send',
     empty: 'No messages yet',
-    authNotReady: 'ely.by OAuth is not configured on the backend yet'
+    authNotReady: 'ely.by OAuth is not configured on the backend yet',
+    loadError: 'Failed to load chat history',
+    sendError: 'Failed to send message',
+    reconnecting: 'Reconnecting realtime…'
   }
   const [text, setText] = useState('')
   const avatar = useMemo(() => profile?.nick ? `https://craft.ely.by/api/player/head/${encodeURIComponent(profile.nick)}` : '', [profile])
@@ -42,6 +45,9 @@ export default function ChatPanel({ profile, messages, onSend, onLogin, onLogout
         </div>
       )}
       <div className="chat-list">
+        {chatLoading && <p className="muted">Loading…</p>}
+        {chatError && <p className="warn-text">{chatError}</p>}
+        {sseState === 'reconnecting' && <p className="muted mono">{l.reconnecting}</p>}
         {messages.length === 0 && <p className="muted">{l.empty}</p>}
         {messages.map((m, i) => (
           <div className="chat-item" key={i}>
@@ -58,8 +64,8 @@ export default function ChatPanel({ profile, messages, onSend, onLogin, onLogout
       </div>
       <form className="chat-form" onSubmit={(e) => { e.preventDefault(); if (!text.trim()) return; onSend(text); setText('') }}>
         <img src={avatar || 'https://craft.ely.by/api/player/head/Steve'} alt="me" />
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder={l.messagePlaceholder} />
-        <button type="submit">{l.send}</button>
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder={l.messagePlaceholder} disabled={!canSend || sending} />
+        <button type="submit" disabled={!canSend || sending}>{sending ? '…' : l.send}</button>
       </form>
     </section>
   )

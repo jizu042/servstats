@@ -43,10 +43,17 @@ export default function App() {
   const [sessions, setSessions] = useState({})
   const [stats, setStats] = useState(DEFAULT_STATS)
   const [chat, setChat] = useState([{ nick: 'System', text: 'Welcome to local chat demo.' }])
+  const [chatLoading, setChatLoading] = useState(true)
+  const [chatError, setChatError] = useState('')
+  const [chatSending, setChatSending] = useState(false)
+  const [sseState, setSseState] = useState('connecting')
   const [rangeHours, setRangeHours] = useState(24)
   const [auth, setAuth] = useState({ enabled: false })
   const [authError, setAuthError] = useState('')
   const [me, setMe] = useState(null)
+  const sseRef = useRef(null)
+  const sseRetryRef = useRef(null)
+  const sseAttemptsRef = useRef(0)
 
   const hp = useMemo(() => parseHostPort(settings.hostPort), [settings.hostPort])
   const hostPort = `${hp.host}:${hp.port}`
@@ -161,29 +168,60 @@ export default function App() {
     fetchChatMessages(API_BASE)
       .then((rows) => {
         if (mounted && Array.isArray(rows) && rows.length) setChat(rows)
+        if (mounted) {
+          setChatLoading(false)
+          setChatError('')
+        }
       })
-      .catch(() => {})
+      .catch(() => {
+        if (mounted) {
+          setChatLoading(false)
+          setChatError(t.chat.loadError)
+        }
+      })
 
-    const stream = new EventSource(getChatStreamUrl(API_BASE), { withCredentials: true })
-    stream.addEventListener('message', (event) => {
-      try {
-        const msg = JSON.parse(event.data)
-        setChat((prev) => {
-          const last = prev[prev.length - 1]
-          if (last && last.nick === msg.nick && last.text === msg.text && last.ts === msg.ts) return prev
-          const next = [...prev, msg]
-          return next.slice(-200)
-        })
-      } catch {
-        // ignore malformed messages
+    const connectSse = () => {
+      if (!mounted) return
+      setSseState('connecting')
+      const stream = new EventSource(getChatStreamUrl(API_BASE), { withCredentials: true })
+      sseRef.current = stream
+
+      stream.onopen = () => {
+        sseAttemptsRef.current = 0
+        setSseState('connected')
       }
-    })
+
+      stream.addEventListener('message', (event) => {
+        try {
+          const msg = JSON.parse(event.data)
+          setChat((prev) => {
+            const last = prev[prev.length - 1]
+            if (last && last.nick === msg.nick && last.text === msg.text && last.ts === msg.ts) return prev
+            const next = [...prev, msg]
+            return next.slice(-200)
+          })
+        } catch {
+          // ignore malformed messages
+        }
+      })
+
+      stream.onerror = () => {
+        stream.close()
+        setSseState('reconnecting')
+        sseAttemptsRef.current += 1
+        const retryMs = Math.min(15000, 1000 * 2 ** Math.min(5, sseAttemptsRef.current))
+        sseRetryRef.current = setTimeout(connectSse, retryMs)
+      }
+    }
+
+    connectSse()
 
     return () => {
       mounted = false
-      stream.close()
+      if (sseRetryRef.current) clearTimeout(sseRetryRef.current)
+      if (sseRef.current) sseRef.current.close()
     }
-  }, [])
+  }, [t.chat.loadError])
 
   useEffect(() => {
     const u = new URL(window.location.href)
@@ -282,6 +320,11 @@ export default function App() {
         <ChatPanel
           profile={me}
           messages={chat}
+          chatLoading={chatLoading}
+          chatError={chatError}
+          sending={chatSending}
+          sseState={sseState}
+          canSend={!auth?.enabled || Boolean(me?.nick)}
           authEnabled={auth?.enabled}
           authError={authError}
           labels={t.chat}
@@ -308,11 +351,15 @@ export default function App() {
             }
           }}
           onSend={async (text) => {
+            setChatSending(true)
+            setChatError('')
             try {
               const msg = await postChatMessage(API_BASE, me?.nick || 'Guest', text)
               setChat((m) => [...m, msg])
             } catch {
-              setChat((m) => [...m, { nick: me?.nick || 'Guest', text, ts: Date.now() }])
+              setChatError(t.chat.sendError)
+            } finally {
+              setChatSending(false)
             }
           }}
         />
