@@ -4,15 +4,15 @@ import { formatUptime } from '../lib/format'
 import { fetchPlayerSessions } from '../lib/api'
 
 function headUrl(nick) {
-  return `https://craft.ely.by/api/player/head/${encodeURIComponent(nick)}`
+  return `https://minotar.net/helm/${encodeURIComponent(nick)}/64.png`
 }
 
 function elySkinUrl(nick) {
-  return `https://craft.ely.by/api/player/skin/${encodeURIComponent(nick)}`
+  return `http://skinsystem.ely.by/skins/${encodeURIComponent(nick)}.png`
 }
 
 function mcHeadsSkinUrl(nick) {
-  return `https://mc-heads.net/skin/${encodeURIComponent(nick)}`
+  return `https://minotar.net/skin/${encodeURIComponent(nick)}`
 }
 
 function formatDuration(ms) {

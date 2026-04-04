@@ -206,7 +206,7 @@ app.get('/api/me', (req, res) => {
   res.json({
     authenticated: true,
     nick:   user.nick,
-    avatar: `https://craft.ely.by/api/player/head/${encodeURIComponent(user.nick)}`
+    avatar: `https://minotar.net/helm/${encodeURIComponent(user.nick)}/64.png`
   })
 })
 
@@ -430,7 +430,20 @@ function broadcastChat(msg) {
 }
 
 function readCookies(req) {
-  return Object.fromEntries((req.headers.cookie || '').split(';').map(v => v.trim().split('=')))
+  const result = {}
+  if (!req.headers.cookie) return result
+  for (const part of req.headers.cookie.split(';')) {
+    const idx = part.indexOf('=')
+    if (idx < 0) continue
+    const key = part.slice(0, idx).trim()
+    const val = part.slice(idx + 1).trim()
+    try {
+      result[key] = decodeURIComponent(val)
+    } catch {
+      result[key] = val
+    }
+  }
+  return result
 }
 
 function setCookie(res, name, value, options = {}) {

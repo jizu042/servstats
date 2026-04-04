@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { formatUptime, stripMcCodes } from '../lib/format'
 
 function headUrl(nick) {
-  return `https://craft.ely.by/api/player/head/${encodeURIComponent(nick)}`
+  return `https://minotar.net/helm/${encodeURIComponent(nick)}/64.png`
 }
 
 function recentNicks(sessions, onlineSet, limit = 14) {

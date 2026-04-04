@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 
 function headUrl(nick) {
-  return `https://craft.ely.by/api/player/head/${encodeURIComponent(nick)}`
+  return `https://minotar.net/helm/${encodeURIComponent(nick)}/64.png`
 }
 
 export default function ChatPanel({
