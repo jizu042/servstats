@@ -114,7 +114,7 @@ function SourceCard({ source, data, loading, error }) {
               <img src={data.favicon} alt="" style={{ width: 32, height: 32, borderRadius: 6, imageRendering: 'pixelated' }} />
             </div>
           )}
-          {data.tags && data.tags.length > 0 && (
+          {Array.isArray(data.tags) && data.tags.length > 0 && (
             <div style={{ marginTop: 8 }}>
               <span className="detail-row-label" style={{ display: 'block', marginBottom: 6 }}>Теги</span>
               <div className="details-tags">

@@ -21,9 +21,7 @@ function formatDuration(ms) {
   return `${m}м`
 }
 
-function headUrl(nick) {
-  return `https://minotar.net/helm/${encodeURIComponent(nick)}/64.png`
-}
+import PlayerFace from './PlayerFace'
 
 export default function StatsPanel({ stats, playersList, labels, loading, onPlayerClick }) {
   const l      = labels || {}
@@ -166,12 +164,10 @@ export default function StatsPanel({ stats, playersList, labels, loading, onPlay
                 onClick={() => onPlayerClick?.(p.nick)}
                 onKeyDown={(e) => e.key === 'Enter' && onPlayerClick?.(p.nick)}
               >
-                <img
-                  className="phi-avatar"
-                  src={headUrl(p.nick)}
-                  alt=""
-                  width={26}
-                  height={26}
+                <PlayerFace
+                  nick={p.nick}
+                  size={26}
+                  style={{ marginRight: 10 }}
                 />
                 <span className="phi-nick">{p.nick}</span>
                 <span className="phi-time muted2">

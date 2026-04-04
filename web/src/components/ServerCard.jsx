@@ -1,9 +1,7 @@
 import { useMemo, useState } from 'react'
 import { formatUptime, stripMcCodes } from '../lib/format'
 
-function headUrl(nick) {
-  return `https://minotar.net/helm/${encodeURIComponent(nick)}/64.png`
-}
+import PlayerFace from './PlayerFace'
 
 function recentNicks(sessions, onlineSet, limit = 14) {
   return Object.entries(sessions || {})
@@ -119,7 +117,7 @@ export default function ServerCard({ server, onlineSince, sessions, onPlayerClic
               className="player-chip"
               onClick={() => onPlayerClick(nick)}
             >
-              <img src={headUrl(nick)} alt="" loading="lazy" width={22} height={22} />
+              <PlayerFace nick={nick} size={22} loading="lazy" style={{ flexShrink: 0 }} />
               <span className="player-nick">{nick}</span>
             </button>
           ))}
@@ -141,7 +139,7 @@ export default function ServerCard({ server, onlineSince, sessions, onPlayerClic
                   className="player-chip player-chip-ghost"
                   onClick={() => onPlayerClick(nick)}
                 >
-                  <img src={headUrl(nick)} alt="" loading="lazy" width={22} height={22} />
+                  <PlayerFace nick={nick} size={22} loading="lazy" style={{ flexShrink: 0 }} />
                   <span className="player-nick">{nick}</span>
                 </button>
               ))}

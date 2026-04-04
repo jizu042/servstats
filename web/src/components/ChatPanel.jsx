@@ -1,8 +1,6 @@
 import { useRef, useState } from 'react'
 
-function headUrl(nick) {
-  return `https://minotar.net/helm/${encodeURIComponent(nick)}/64.png`
-}
+import PlayerFace from './PlayerFace'
 
 export default function ChatPanel({
   profile,
@@ -22,7 +20,7 @@ export default function ChatPanel({
   const [text, setText] = useState('')
   const scrollRef = useRef(null)
 
-  const avatar = profile?.nick ? headUrl(profile.nick) : ''
+  const avatarNick = profile?.nick || 'Steve'
 
   const streamStatus = streamState?.status || 'connecting'
   const streamLabel =
@@ -55,7 +53,7 @@ export default function ChatPanel({
       {profile?.nick ? (
         <div className="chat-profile-row">
           <div className="chat-profile-ident">
-            <img src={avatar || headUrl('Steve')} alt="" className="chat-profile-avatar" />
+            <PlayerFace nick={avatarNick} size={30} style={{ marginRight: 10, alignSelf: 'center' }} />
             <span style={{ fontSize: 13.5 }}>
               {l.signedInAs || 'Вы вошли как'} <b style={{ color: 'var(--purple)' }}>{profile.nick}</b>
             </span>
@@ -69,7 +67,7 @@ export default function ChatPanel({
       ) : (
         <div className="chat-guest-block">
           <div className="chat-profile-ident">
-            <img src={headUrl('Steve')} alt="" className="chat-profile-avatar" style={{ filter: 'grayscale(1)' }} />
+            <PlayerFace nick="Steve" size={30} style={{ filter: 'grayscale(1)', marginRight: 10, alignSelf: 'center' }} />
             <span className="muted" style={{ fontSize: 13.5 }}>
               {authEnabled ? (l.signInPrompt || 'Авторизуйтесь через Ely.by для отправки сообщений') : (l.oauthNotConfigured || 'Вход через Ely.by не настроен')}
             </span>
@@ -102,13 +100,10 @@ export default function ChatPanel({
         )}
         {messages.map((m, i) => (
           <div className="chat-item" key={`${m.ts}-${i}-${m.nick}`}>
-            <img
-              src={headUrl(m.nick)}
-              alt=""
-              width={28}
-              height={28}
-              style={{ borderRadius: 6, flexShrink: 0, objectFit: 'cover', cursor: onPlayerClick ? 'pointer' : 'default' }}
-              onClick={() => onPlayerClick?.(m.nick)}
+            <PlayerFace 
+              nick={m.nick} 
+              size={28} 
+              style={{ flexShrink: 0, cursor: onPlayerClick ? 'pointer' : 'default', alignSelf: 'flex-start' }} 
             />
             <div className="chat-item-body">
               <div className="chat-item-head">
@@ -136,13 +131,7 @@ export default function ChatPanel({
 
       {/* Send form */}
       <form className="chat-form" onSubmit={handleSubmit}>
-        <img
-          src={avatar || headUrl('Steve')}
-          alt=""
-          width={30}
-          height={30}
-          style={{ borderRadius: 7, flexShrink: 0, objectFit: 'cover' }}
-        />
+        <PlayerFace nick={avatarNick} size={30} style={{ flexShrink: 0, alignSelf: 'center' }} />
         <input
           className="chat-input"
           value={text}

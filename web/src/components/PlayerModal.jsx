@@ -3,9 +3,7 @@ import { SkinViewer, WalkingAnimation } from 'skinview3d'
 import { formatUptime } from '../lib/format'
 import { fetchPlayerSessions } from '../lib/api'
 
-function headUrl(nick) {
-  return `https://minotar.net/helm/${encodeURIComponent(nick)}/64.png`
-}
+import PlayerFace from './PlayerFace'
 
 function elySkinUrl(nick) {
   return `http://skinsystem.ely.by/skins/${encodeURIComponent(nick)}.png`
@@ -89,7 +87,7 @@ export default function PlayerModal({ nick, apiBase, host, port, sessionSince, h
 
         {/* Header */}
         <div className="modal-player-header" id="player-modal-title">
-          <img className="modal-head-img" src={headUrl(nick)} alt={nick} />
+          <PlayerFace nick={nick} size={48} style={{ marginRight: 16 }} />
           <div>
             <h3>{nick}</h3>
             {isOnline

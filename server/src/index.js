@@ -357,13 +357,15 @@ async function getServerStatus({ host, port, source }) {
   const results = await Promise.all(sources)
   const external = results.find(r => r && r.online)
 
-  if (directData) {
-    if (external && directData.players.list.length === 0 && external.players.list.length > 0) {
-      directData.players = external.players
+  if (external) {
+    if (directData) {
+      if (external.players.list.length === 0 && directData.players.list.length > 0) external.players = directData.players
+      if (!external.favicon && directData.favicon) external.favicon = directData.favicon
+      if (!external.motd?.clean && directData.motd?.clean) external.motd = directData.motd
     }
-    return directData
+    return external
   }
-  return external || { online: false, host, port, players: { online: 0, max: 0, list: [] }, motd: { clean: 'Offline' } }
+  return directData || { online: false, host, port, players: { online: 0, max: 0, list: [] }, motd: { clean: 'Offline' } }
 }
 
 async function fromIsmc(host, port) {

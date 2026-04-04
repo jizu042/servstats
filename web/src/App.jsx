@@ -147,57 +147,19 @@ export default function App() {
         const isOnline = Boolean(data.online)
         setServer(data)
 
-        // Use DB-sourced onlineSince if available
-        if (typeof data.onlineSince === 'number' && data.onlineSince > 0) {
+        if (typeof data.onlineSince === 'number') {
           setOnlineSince(data.onlineSince)
-          localStorage.setItem(getOnlineSinceKey(hostPort), String(data.onlineSince))
-        }
-
-        const sinceKey = getOnlineSinceKey(hostPort)
-
-        if (!pollPrimedRef.current) {
-          pollPrimedRef.current = true
-          if (isOnline) {
-            if (!localStorage.getItem(sinceKey)) localStorage.setItem(sinceKey, String(Date.now()))
-            setOnlineSince(Number(localStorage.getItem(sinceKey)))
-          } else {
-            localStorage.removeItem(sinceKey)
-            setOnlineSince(null)
-          }
-          prevOnlineRef.current = isOnline
         } else {
-          if (!prevOnlineRef.current && isOnline) {
-            if (!localStorage.getItem(sinceKey)) localStorage.setItem(sinceKey, String(Date.now()))
-            setOnlineSince(Number(localStorage.getItem(sinceKey)))
-            if (settings.notifyOnOnline) notifyServerOnline(hostPort)
-          }
-          if (prevOnlineRef.current && !isOnline) {
-            setStats((old) => {
-              const start  = Number(localStorage.getItem(sinceKey) || 0)
-              const upSec  = start ? Math.floor((Date.now() - start) / 1000) : 0
-              const uptimes = upSec > 0 ? [...(old.uptimes || []), upSec] : old.uptimes || []
-              const avg    = uptimes.length ? Math.floor(uptimes.reduce((a, b) => a + b, 0) / uptimes.length) : 0
-              const hh = String(Math.floor(avg / 3600)).padStart(2, '0')
-              const mm = String(Math.floor((avg % 3600) / 60)).padStart(2, '0')
-              const ss = String(avg % 60).padStart(2, '0')
-              const updated = { ...old, offlines: (old.offlines || 0) + 1, uptimes, avgUptime: `${hh}:${mm}:${ss}` }
-              writeJson(sk, updated)
-              return updated
-            })
-            localStorage.removeItem(sinceKey)
-            setOnlineSince(null)
-          }
-          prevOnlineRef.current = isOnline
+          setOnlineSince(null)
         }
 
         if (isOnline) {
+          // Keep a minimal local buffer for smooth rendering before next DB sync
           setStats((old) => {
             const point      = { t: Date.now(), v: Number(data?.players?.online || 0) }
             const history24h = [...(old.history24h || []), point].slice(-24 * 60 * 6)
             const peak       = Math.max(old.peak || 0, point.v)
-            const updated    = { ...old, history24h, peak }
-            writeJson(sk, updated)
-            return updated
+            return { ...old, history24h, peak }
           })
           const names = data?.players?.list || []
           setSessions((old) => {
@@ -213,7 +175,6 @@ export default function App() {
                 next[nick][next[nick].length - 1].end = now
               }
             }
-            writeJson(sessK, next)
             return next
           })
         }
@@ -224,7 +185,7 @@ export default function App() {
     tick()
     const id = setInterval(tick, Math.max(5, settings.pollSec) * 1000)
     return () => { stop = true; clearInterval(id) }
-  }, [hp.host, hp.port, settings.pollSec, settings.notifyOnOnline, settings.apiSource, hostPort, sk, sessK])
+  }, [hp.host, hp.port, settings.pollSec, settings.apiSource])
 
   // Chat setup
   const loadChatHistory = useCallback(() => {
@@ -465,73 +426,12 @@ export default function App() {
           )}
 
           {tab === 'map' && (
-            <div className="card fade-in">
-              <div className="card-header">
-                <h2 className="card-title">📡 Локация и Тех. Данные</h2>
-              </div>
-              <div className="map-view-container">
-                <div className="details-grid">
-                  <div className="detail-source-card">
-                    <div className="detail-source-header">
-                      <div className="detail-source-icon">🌍</div>
-                      <div>
-                        <div className="detail-source-name">Геолокация</div>
-                        <div className="detail-source-url">Данные от текущего сервера</div>
-                      </div>
-                    </div>
-                    <div className="detail-rows">
-                      <div className="detail-row">
-                        <span className="detail-row-label">Страна</span>
-                        <span className="detail-row-val">
-                          {server?.location?.country || 'Неизвестно'}
-                          {server?.location?.country && (
-                            <img
-                              src={`https://flagcdn.com/24x18/${server.location.country.toLowerCase()}.png`}
-                              alt="Flag"
-                              style={{ marginLeft: '8px', verticalAlign: 'middle', borderRadius: '2px' }}
-                            />
-                          )}
-                        </span>
-                      </div>
-                      <div className="detail-row">
-                        <span className="detail-row-label">Город</span>
-                        <span className="detail-row-val">{server?.location?.city || 'Неизвестно'}</span>
-                      </div>
-                      <div className="detail-row">
-                        <span className="detail-row-label">Регион</span>
-                        <span className="detail-row-val">{server?.location?.region || 'Неизвестно'}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="detail-source-card">
-                    <div className="detail-source-header">
-                      <div className="detail-source-icon">🛠️</div>
-                      <div>
-                        <div className="detail-source-name">Версия</div>
-                        <div className="detail-source-url">Софт и ядро</div>
-                      </div>
-                    </div>
-                    <div className="detail-rows">
-                      <div className="detail-row">
-                        <span className="detail-row-label">Протокол</span>
-                        <span className="detail-row-val">{server?.version?.protocol || '—'}</span>
-                      </div>
-                      <div className="detail-row">
-                        <span className="detail-row-label">Ядро</span>
-                        <span className="detail-row-val group-hover-color">{server?.version?.name || 'Minecraft'}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="map-placeholder" style={{ marginTop: '20px', height: '240px', background: 'var(--bg-3)', border: '1px dashed var(--card-border)', borderRadius: 'var(--radius)', display: 'grid', placeItems: 'center', color: 'var(--text-3)' }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '32px', marginBottom: '10px' }}>🗺️</div>
-                    Интерактивная карта мира будет доступна в следующем обновлении.<br />
-                    <small style={{ opacity: 0.6 }}>Локация сервера определена успешно.</small>
-                  </div>
-                </div>
-              </div>
+            <div className="card fade-in" style={{ display: 'grid', placeItems: 'center', padding: '60px 20px', textAlign: 'center' }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>🚧</div>
+              <h2 style={{ marginBottom: '8px', color: 'var(--text-1)' }}>Ведутся Технические Работы</h2>
+              <p style={{ color: 'var(--text-3)', maxWidth: '400px', lineHeight: 1.5 }}>
+                Вкладка "Карта" временно недоступна в связи с доработкой интерактивных модулей. Мы скоро всё вернём!
+              </p>
             </div>
           )}
         </main>

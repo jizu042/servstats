@@ -137,27 +137,34 @@ async function ensureServer(pool, host, port) {
 }
 
 async function getServerStatus({ host, port, source, timeout: ms }) {
-  // Try direct TCP ping first for reliable player list
+  let directData = null
   try {
     const raw = await util.status(host, port, { timeout: Math.min(ms, 4000), enableSRV: true })
-    return {
+    directData = {
       source:  'direct',
       online:  true,
       host,    port,
       ping:    raw.roundTripLatency ?? null,
       players: buildPlayers({ online: raw.players?.online, max: raw.players?.max, sample: raw.players?.sample })
     }
-  } catch { /* direct failed, fall through to external APIs */ }
+  } catch {}
 
-  if (source === 'ismcserver') return normalizeIsmc(await fromIsmc(host, port, ms), host, port)
-  if (source === 'mcstatus')   return normalizeMcstatus(await fromMcstatus(host, port, ms), host, port)
+  if (source === 'direct' && directData) return directData
 
-  // Auto fallback chain
-  try {
-    return normalizeIsmc(await fromIsmc(host, port, ms), host, port)
-  } catch {
-    return normalizeMcstatus(await fromMcstatus(host, port, ms), host, port)
+  const sources = []
+  if (source === 'auto' || source === 'ismcserver') sources.push(fromIsmc(host, port, ms).then(r => normalizeIsmc(r, host, port)).catch(() => null))
+  if (source === 'auto' || source === 'mcstatus')   sources.push(fromMcstatus(host, port, ms).then(r => normalizeMcstatus(r, host, port)).catch(() => null))
+
+  const results = await Promise.all(sources)
+  const external = results.find(r => r && r.online)
+
+  if (external) {
+    if (directData) {
+      if (external.players.list.length === 0 && directData.players.list.length > 0) external.players = directData.players
+    }
+    return external
   }
+  return directData || { online: false, host, port, players: { online: 0, max: 0, list: [] }, ping: null, source: 'unknown' }
 }
 
 async function fromIsmc(host, port, timeoutMs) {
