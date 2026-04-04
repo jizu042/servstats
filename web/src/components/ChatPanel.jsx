@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useRef, useState } from 'react'
 
 function headUrl(nick) {
   return `https://craft.ely.by/api/player/head/${encodeURIComponent(nick)}`
@@ -15,77 +15,111 @@ export default function ChatPanel({
   loadState,
   streamState,
   sendError,
-  onRetryLoad
+  onRetryLoad,
+  onPlayerClick
 }) {
   const l = labels || {}
   const [text, setText] = useState('')
-  const avatar = useMemo(
-    () => (profile?.nick ? headUrl(profile.nick) : ''),
-    [profile?.nick]
-  )
+  const scrollRef = useRef(null)
 
+  const avatar = profile?.nick ? headUrl(profile.nick) : ''
+
+  const streamStatus = streamState?.status || 'connecting'
   const streamLabel =
-    streamState?.status === 'live'
-      ? l.streamLive
-      : streamState?.status === 'reconnecting'
-        ? l.streamReconnecting
-        : streamState?.status === 'error'
-          ? l.streamError
-          : '…'
+    streamStatus === 'live'         ? l.streamLive :
+    streamStatus === 'reconnecting' ? l.streamReconnecting :
+    streamStatus === 'error'        ? l.streamError : '…'
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    const trimmed = text.trim()
+    if (!trimmed) return
+    try {
+      await onSend(trimmed)
+      setText('')
+      // scroll to bottom
+      setTimeout(() => {
+        if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+      }, 50)
+    } catch { /* surfaced via sendError */ }
+  }
 
   return (
-    <section className="card chat-card">
-      <div className="chat-card-header">
-        <h3>{l.title}</h3>
-        <span className={`stream-pill stream-${streamState?.status || 'connecting'}`}>{streamLabel}</span>
+    <section className="card chat-card fade-in">
+      {/* Header */}
+      <div className="chat-header">
+        <h2 className="card-title">{l.title}</h2>
+        <span className={`stream-pill ${streamStatus}`}>{streamLabel}</span>
       </div>
 
-      {profile?.nick && (
+      {/* Profile row */}
+      {profile?.nick ? (
         <div className="chat-profile-row">
           <div className="chat-profile-ident">
-            {avatar ? <img src={avatar} alt="" className="chat-profile-avatar" width={28} height={28} /> : null}
-            <span className="muted">
-              {l.signedInAs} <b>{profile.nick}</b>
+            {avatar && <img src={avatar} alt="" className="chat-profile-avatar" />}
+            <span style={{ fontSize: 13.5 }}>
+              {l.signedInAs} <b style={{ color: 'var(--purple)' }}>{profile.nick}</b>
             </span>
           </div>
           {onLogout && (
-            <button type="button" onClick={onLogout}>
+            <button type="button" className="btn-danger" style={{ padding: '5px 11px', fontSize: 12 }} onClick={onLogout}>
               {l.logout}
             </button>
           )}
         </div>
-      )}
-
-      {!profile?.nick && (
+      ) : (
         <div className="chat-guest-block">
-          <p className="muted">{authEnabled ? l.signInPrompt : l.oauthNotConfigured}</p>
+          <span className="muted" style={{ fontSize: 13 }}>
+            {authEnabled ? l.signInPrompt : l.oauthNotConfigured}
+          </span>
           {onLogin && authEnabled && (
-            <button type="button" onClick={onLogin}>
+            <button type="button" className="btn-primary" style={{ padding: '6px 14px', fontSize: 12.5 }} onClick={onLogin}>
               {l.loginEly}
             </button>
           )}
         </div>
       )}
 
-      {loadState === 'loading' && <p className="muted chat-meta">{l.loadingHistory}</p>}
+      {/* Load states */}
+      {loadState === 'loading' && (
+        <p className="chat-meta muted">
+          <span className="spinner" style={{ marginRight: 8 }} />{l.loadingHistory}
+        </p>
+      )}
       {loadState === 'error' && (
         <div className="chat-error-banner">
           <span>{l.loadHistoryError}</span>
-          <button type="button" onClick={onRetryLoad}>
-            {l.retry}
-          </button>
+          <button type="button" style={{ padding: '4px 10px', fontSize: 12 }} onClick={onRetryLoad}>{l.retry}</button>
         </div>
       )}
 
-      <div className="chat-scroll">
-        {loadState === 'ready' && messages.length === 0 && <p className="muted chat-meta">{l.emptyChat}</p>}
+      {/* Messages */}
+      <div className="chat-scroll" ref={scrollRef}>
+        {loadState === 'ready' && messages.length === 0 && (
+          <p className="chat-meta muted">{l.emptyChat}</p>
+        )}
         {messages.map((m, i) => (
           <div className="chat-item" key={`${m.ts}-${i}-${m.nick}`}>
-            <img src={headUrl(m.nick)} alt="" width={24} height={24} />
+            <img
+              src={headUrl(m.nick)}
+              alt=""
+              width={28}
+              height={28}
+              style={{ borderRadius: 6, flexShrink: 0, objectFit: 'cover', cursor: onPlayerClick ? 'pointer' : 'default' }}
+              onClick={() => onPlayerClick?.(m.nick)}
+            />
             <div className="chat-item-body">
               <div className="chat-item-head">
-                <b className="chat-nick">{m.nick}</b>
-                <small className="muted mono">{m.ts ? new Date(m.ts).toLocaleTimeString() : ''}</small>
+                <b
+                  className="chat-nick"
+                  onClick={() => onPlayerClick?.(m.nick)}
+                  title={`Открыть профиль ${m.nick}`}
+                >
+                  {m.nick}
+                </b>
+                <span className="chat-time">
+                  {m.ts ? new Date(m.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                </span>
               </div>
               <p className="chat-text">{m.text}</p>
             </div>
@@ -95,23 +129,30 @@ export default function ChatPanel({
 
       {sendError && <p className="chat-send-error">{sendError}</p>}
 
-      <form
-        className="chat-form"
-        onSubmit={async (e) => {
-          e.preventDefault()
-          const trimmed = text.trim()
-          if (!trimmed) return
-          try {
-            await onSend(trimmed)
-            setText('')
-          } catch {
-            /* error surfaced via sendError */
-          }
-        }}
-      >
-        <img src={avatar || headUrl('Steve')} alt="" width={28} height={28} />
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder={l.messagePlaceholder} />
-        <button type="submit">{l.send}</button>
+      {/* Send form */}
+      <form className="chat-form" onSubmit={handleSubmit}>
+        <img
+          src={avatar || headUrl('Steve')}
+          alt=""
+          width={30}
+          height={30}
+          style={{ borderRadius: 7, flexShrink: 0, objectFit: 'cover' }}
+        />
+        <input
+          className="chat-input"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={profile?.nick ? l.messagePlaceholder : (authEnabled ? l.signInPrompt : l.messagePlaceholder)}
+          disabled={!profile?.nick && authEnabled}
+        />
+        <button
+          type="submit"
+          className="btn-primary"
+          style={{ padding: '9px 16px', flexShrink: 0 }}
+          disabled={!text.trim()}
+        >
+          {l.send}
+        </button>
       </form>
     </section>
   )

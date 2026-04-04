@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { SkinViewer, WalkingAnimation } from 'skinview3d'
 import { formatUptime } from '../lib/format'
+import { fetchPlayerSessions } from '../lib/api'
 
 function headUrl(nick) {
   return `https://craft.ely.by/api/player/head/${encodeURIComponent(nick)}`
@@ -14,87 +15,147 @@ function mcHeadsSkinUrl(nick) {
   return `https://mc-heads.net/skin/${encodeURIComponent(nick)}`
 }
 
-export default function PlayerModal({ nick, sessionSince, history, onClose, labels }) {
-  const l = labels || {}
+function formatDuration(ms) {
+  if (!ms || ms < 0) return '—'
+  const s = Math.floor(ms / 1000)
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  if (h > 0) return `${h}ч ${m}м`
+  return `${m}м`
+}
+
+export default function PlayerModal({ nick, apiBase, host, port, sessionSince, history, onClose, labels }) {
+  const l         = labels || {}
   const canvasRef = useRef(null)
   const viewerRef = useRef(null)
-  const [skinFailed, setSkinFailed] = useState(false)
+  const [skinFailed, setSkinFailed]     = useState(false)
+  const [dbSessions, setDbSessions]     = useState(null)
+  const [sessionsLoading, setSessionsLoading] = useState(false)
 
+  // 3D skin viewer
   useEffect(() => {
     if (!nick || !canvasRef.current) return undefined
 
     const canvas = canvasRef.current
     const w = Math.min(440, canvas.parentElement?.clientWidth || 440)
-    const h = 320
+    const h = 300
 
-    const viewer = new SkinViewer({
-      canvas,
-      width: w,
-      height: h,
-      background: 0x121826
-    })
+    const viewer = new SkinViewer({ canvas, width: w, height: h, background: 0x080b14 })
     viewer.animation = new WalkingAnimation()
+    viewer.animation.speed = 0.7
     viewerRef.current = viewer
     setSkinFailed(false)
 
-    const loadFallbackChain = () =>
-      viewer
-        .loadSkin(elySkinUrl(nick))
-        .catch(() => viewer.loadSkin(mcHeadsSkinUrl(nick)))
-        .catch(() => {
-          setSkinFailed(true)
-          return viewer.loadSkin(mcHeadsSkinUrl('Steve'))
-        })
-        .catch(() => {})
-
-    loadFallbackChain()
+    viewer.loadSkin(elySkinUrl(nick))
+      .catch(() => viewer.loadSkin(mcHeadsSkinUrl(nick)))
+      .catch(() => { setSkinFailed(true); return viewer.loadSkin(mcHeadsSkinUrl('Steve')) })
+      .catch(() => {})
 
     const ro = new ResizeObserver(() => {
-      const nw = Math.min(440, canvas.parentElement?.clientWidth || 440)
-      viewer.width = nw
+      viewer.width  = Math.min(440, canvas.parentElement?.clientWidth || 440)
       viewer.height = h
     })
     if (canvas.parentElement) ro.observe(canvas.parentElement)
 
-    return () => {
-      ro.disconnect()
-      viewer.dispose()
-      viewerRef.current = null
-    }
+    return () => { ro.disconnect(); viewer.dispose(); viewerRef.current = null }
   }, [nick])
+
+  // Load DB sessions
+  useEffect(() => {
+    if (!nick || !apiBase || !host) return
+    setSessionsLoading(true)
+    setDbSessions(null)
+    fetchPlayerSessions(apiBase, host, port, nick)
+      .then((rows) => setDbSessions(Array.isArray(rows) ? rows : []))
+      .catch(() => setDbSessions([]))
+      .finally(() => setSessionsLoading(false))
+  }, [nick, apiBase, host, port])
 
   if (!nick) return null
 
+  // Merge DB sessions with local ones; prefer DB
+  const allSessions = dbSessions !== null ? dbSessions : history || []
+  const totalMs     = allSessions.reduce((sum, s) => {
+    const dur = s.end ? (s.end - s.start) : (Date.now() - s.start)
+    return sum + Math.max(0, dur)
+  }, 0)
+  const visitCount  = allSessions.length
+  const isOnline    = Boolean(sessionSince)
+
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
-      <div className="modal" role="dialog" aria-labelledby="player-modal-title" onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="close" onClick={onClose}>
-          ✕
-        </button>
-        <div className="modal-player-title" id="player-modal-title">
-          <img className="modal-head" src={headUrl(nick)} alt="" width={40} height={40} />
-          <h3>{nick}</h3>
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal fade-in" role="dialog" aria-labelledby="player-modal-title" onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="modal-close" onClick={onClose} aria-label="Закрыть">✕</button>
+
+        {/* Header */}
+        <div className="modal-player-header" id="player-modal-title">
+          <img className="modal-head-img" src={headUrl(nick)} alt={nick} />
+          <div>
+            <h3>{nick}</h3>
+            {isOnline
+              ? <span style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600 }}>🟢 Online · {formatUptime(sessionSince)}</span>
+              : <span style={{ fontSize: 12, color: 'var(--text-3)' }}>Последний раз видели</span>
+            }
+          </div>
         </div>
+
+        {/* Stats row */}
+        <div className="player-stats-row">
+          <div className="player-stat-box">
+            <div className="player-stat-val">{visitCount}</div>
+            <div className="player-stat-lbl">Визитов</div>
+          </div>
+          <div className="player-stat-box">
+            <div className="player-stat-val">{formatDuration(totalMs)}</div>
+            <div className="player-stat-lbl">Всего онлайн</div>
+          </div>
+          <div className="player-stat-box">
+            <div className="player-stat-val" style={{ color: isOnline ? 'var(--accent)' : 'var(--text-3)', fontSize: '1rem' }}>
+              {isOnline ? 'Онлайн' : '—'}
+            </div>
+            <div className="player-stat-lbl">Статус</div>
+          </div>
+        </div>
+
+        {/* 3D Skin viewer */}
         <div className="skin-canvas-wrap">
           <canvas ref={canvasRef} className="skin-canvas" />
         </div>
-        {skinFailed && <p className="muted small skin-fallback-note">{l.skinLoadError}</p>}
-        <p>
-          <b>{l.currentSession}:</b> {formatUptime(sessionSince)}
-        </p>
-        <h4>{l.sessionHistory}</h4>
-        <ul className="session-list">
-          {(history || [])
-            .slice(-10)
-            .reverse()
-            .map((it, idx) => (
-              <li key={`${it.start}-${idx}`} className="mono">
-                {new Date(it.start).toLocaleString()} → {it.end ? new Date(it.end).toLocaleString() : l.now}
-              </li>
-            ))}
-          {(!history || history.length === 0) && <li className="muted">{l.noLocalHistory}</li>}
-        </ul>
-        <div className="placeholder">{l.discordReserved}</div>
+        {skinFailed && <p className="skin-fallback-note muted2">⚠️ {l.skinLoadError}</p>}
+
+        {/* Session history */}
+        <p className="session-history-title">{l.sessionHistory}</p>
+
+        {sessionsLoading && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-3)', fontSize: 13 }}>
+            <span className="spinner" /> Загрузка истории…
+          </div>
+        )}
+
+        {!sessionsLoading && (
+          <ul className="session-list">
+            {allSessions.length === 0 && (
+              <li style={{ color: 'var(--text-3)', fontSize: 13, listStyle: 'none' }}>{l.noLocalHistory}</li>
+            )}
+            {allSessions.slice(-15).reverse().map((it, idx) => {
+              const dur = it.end ? (it.end - it.start) : (Date.now() - it.start)
+              return (
+                <li key={`${it.start}-${idx}`} className="session-item">
+                  <div className={`session-item-dot${!it.end ? ' active' : ''}`} />
+                  <span className="session-time">
+                    {new Date(it.start).toLocaleString([], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    {' → '}
+                    {it.end
+                      ? new Date(it.end).toLocaleString([], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+                      : <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{l.now}</span>
+                    }
+                  </span>
+                  <span className="session-duration">{formatDuration(dur)}</span>
+                </li>
+              )
+            })}
+          </ul>
+        )}
       </div>
     </div>
   )

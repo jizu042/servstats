@@ -1,4 +1,3 @@
-
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -13,30 +12,42 @@ import { Line } from 'react-chartjs-2'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler)
 
-export default function StatsPanel({ stats, labels, loading }) {
-  const l = labels || {}
+function formatDuration(ms) {
+  if (!ms || ms < 0) return '—'
+  const s = Math.floor(ms / 1000)
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  if (h > 0) return `${h}ч ${m}м`
+  return `${m}м`
+}
+
+function headUrl(nick) {
+  return `https://craft.ely.by/api/player/head/${encodeURIComponent(nick)}`
+}
+
+export default function StatsPanel({ stats, playersList, labels, loading, onPlayerClick }) {
+  const l      = labels || {}
   const points = stats.history24h || []
   const isWeek = stats.rangeHours > 24
+
   const fmt = isWeek
     ? (t) => new Date(t).toLocaleDateString([], { day: '2-digit', month: '2-digit' })
     : (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
-  const maxTicks = isWeek ? 8 : 12
-
   const data = {
     labels: points.map((p) => fmt(p.t)),
-    datasets: [
-      {
-        label: l.onlinePlayers,
-        data: points.map((p) => p.v),
-        borderColor: '#4ade80',
-        backgroundColor: 'rgba(74, 222, 128, 0.12)',
-        fill: true,
-        tension: 0.2,
-        pointRadius: points.length > 120 ? 0 : 2,
-        pointHitRadius: 6
-      }
-    ]
+    datasets: [{
+      label: l.onlinePlayers,
+      data: points.map((p) => p.v),
+      borderColor: '#8b5cf6',
+      backgroundColor: 'rgba(139, 92, 246, 0.1)',
+      fill: true,
+      tension: 0.3,
+      pointRadius: points.length > 120 ? 0 : 2,
+      pointBackgroundColor: '#8b5cf6',
+      pointHitRadius: 8,
+      borderWidth: 2
+    }]
   }
 
   const options = {
@@ -45,77 +56,143 @@ export default function StatsPanel({ stats, labels, loading }) {
     interaction: { mode: 'index', intersect: false },
     scales: {
       x: {
-        ticks: { maxTicksLimit: maxTicks, color: '#9ca3af', maxRotation: 0 },
-        grid: { color: 'rgba(255,255,255,0.06)' }
+        ticks: {
+          maxTicksLimit: isWeek ? 8 : 12,
+          color: '#5c6082',
+          maxRotation: 0,
+          font: { size: 11, family: 'Inter' }
+        },
+        grid: { color: 'rgba(255,255,255,0.04)' },
+        border: { color: 'rgba(255,255,255,0.06)' }
       },
       y: {
         beginAtZero: true,
-        ticks: { color: '#9ca3af' },
-        grid: { color: 'rgba(255,255,255,0.06)' }
+        ticks: { color: '#5c6082', font: { size: 11, family: 'Inter' } },
+        grid: { color: 'rgba(255,255,255,0.04)' },
+        border: { color: 'rgba(255,255,255,0.06)' }
       }
     },
     plugins: {
-      legend: { labels: { color: '#e5e7eb' } }
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: 'rgba(15,17,32,0.95)',
+        borderColor: 'rgba(139,92,246,0.4)',
+        borderWidth: 1,
+        titleColor: '#8b5cf6',
+        bodyColor: '#f1f2f8',
+        padding: 10,
+        cornerRadius: 8
+      }
     }
   }
 
-  const players = stats.players || [];
+  // Aggregate playersList by nick (sum durations, count visits)
+  const playerAgg = {}
+  for (const p of (playersList || [])) {
+    if (!p.nick) continue
+    if (!playerAgg[p.nick]) playerAgg[p.nick] = { nick: p.nick, visits: 0, totalMs: 0, lastSeen: 0 }
+    const dur = p.end ? (p.end - p.start) : (Date.now() - p.start)
+    playerAgg[p.nick].visits    += 1
+    playerAgg[p.nick].totalMs  += dur
+    playerAgg[p.nick].lastSeen  = Math.max(playerAgg[p.nick].lastSeen, p.end || p.start)
+  }
+  const aggPlayers = Object.values(playerAgg).sort((a, b) => b.totalMs - a.totalMs)
 
   return (
-    <section className="card stats-card">
-      <h3>{l.title}</h3>
-      <div className="tabs stats-tabs">
-        <button type="button" className={stats.rangeHours === 24 ? 'active' : ''} onClick={() => stats.setRangeHours?.(24)}>
-          24h
-        </button>
-        <button type="button" className={stats.rangeHours === 168 ? 'active' : ''} onClick={() => stats.setRangeHours?.(168)}>
-          7d
-        </button>
-      </div>
-      <div className="metrics">
-        <div>
-          <span className="label">{l.peak}</span>
-          <strong className="tabular-nums">{stats.peak ?? 0}</strong>
-        </div>
-        <div>
-          <span className="label">{l.offlines}</span>
-          <strong className="tabular-nums">{stats.offlines ?? 0}</strong>
-        </div>
-        <div>
-          <span className="label">{l.avgUptime}</span>
-          <strong className="tabular-nums">{stats.avgUptime ?? '—'}</strong>
+    <section className="card stats-card fade-in">
+      <div className="card-header">
+        <h2 className="card-title">{l.title}</h2>
+        <div className="stats-controls">
+          <button
+            type="button"
+            className={`range-btn${stats.rangeHours === 24 ? ' active' : ''}`}
+            onClick={() => stats.setRangeHours?.(24)}
+          >24ч</button>
+          <button
+            type="button"
+            className={`range-btn${stats.rangeHours === 168 ? ' active' : ''}`}
+            onClick={() => stats.setRangeHours?.(168)}
+          >7д</button>
         </div>
       </div>
+
+      {/* Summary cards */}
+      <div className="stats-summary">
+        <div className="metric-box">
+          <span className="metric-label">{l.peak}</span>
+          <div className="metric-value" style={{ color: 'var(--purple)' }}>{stats.peak ?? 0}</div>
+          <div className="metric-sub">игроков</div>
+        </div>
+        <div className="metric-box">
+          <span className="metric-label">{l.offlines}</span>
+          <div className="metric-value" style={{ color: 'var(--red)' }}>{stats.offlines ?? 0}</div>
+          <div className="metric-sub">за период</div>
+        </div>
+        <div className="metric-box">
+          <span className="metric-label">{l.avgUptime}</span>
+          <div className="metric-value" style={{ color: 'var(--cyan)', fontSize: '1.05rem' }}>
+            {stats.avgUptime ?? '—'}
+          </div>
+        </div>
+      </div>
+
+      {/* Chart */}
       <div className="chart-wrap">
         {loading && (
           <div className="chart-placeholder chart-loading">
-            <span>{l.loading}</span>
+            <span className="spinner" />
           </div>
         )}
         {!loading && points.length === 0 && (
-          <div className="chart-placeholder chart-empty">
+          <div className="chart-placeholder">
+            <span style={{ fontSize: 28 }}>📊</span>
             <span>{l.empty}</span>
           </div>
         )}
         {!loading && points.length > 0 && <Line data={data} options={options} />}
       </div>
-      <div className="players-history-wrap">
-        <h3>{l.playersHistory || 'Player History'}</h3>
-        <div className="players-history-list">
-            {players.length === 0 && <p className="muted">{l.empty}</p>}
-            {players.map((p, i) => (
-                <div key={i} className="player-history-item">
-                    <div className="phi-nick">
-                        <img src={`https://craft.ely.by/api/player/head/${encodeURIComponent(p.nick)}`} alt="" width={24} height={24} style={{borderRadius: 4}}/>
-                        <b>{p.nick}</b>
-                    </div>
-                    <div className="phi-time">
-                        <span className="muted mono">{new Date(p.start).toLocaleString()} &rarr; {p.end ? new Date(p.end).toLocaleString() : 'Now'}</span>
-                    </div>
-                </div>
+
+      {/* Player history table */}
+      {aggPlayers.length > 0 && (
+        <div className="players-history-section">
+          <h3>{l.playersHistory || 'История игроков'}</h3>
+          <div className="phi-table">
+            {aggPlayers.slice(0, 30).map((p) => (
+              <div
+                key={p.nick}
+                className="phi-row"
+                role="button"
+                tabIndex={0}
+                onClick={() => onPlayerClick?.(p.nick)}
+                onKeyDown={(e) => e.key === 'Enter' && onPlayerClick?.(p.nick)}
+              >
+                <img
+                  className="phi-avatar"
+                  src={headUrl(p.nick)}
+                  alt=""
+                  width={26}
+                  height={26}
+                />
+                <span className="phi-nick">{p.nick}</span>
+                <span className="phi-time muted2">
+                  {p.visits} {p.visits === 1 ? 'визит' : 'визитов'}
+                </span>
+                <span className="phi-duration">{formatDuration(p.totalMs)}</span>
+              </div>
             ))}
+          </div>
         </div>
-      </div>
+      )}
+
+      {aggPlayers.length === 0 && !loading && (
+        <div className="players-history-section">
+          <h3>{l.playersHistory || 'История игроков'}</h3>
+          <div className="no-data-placeholder" style={{ padding: '20px' }}>
+            <span className="no-data-icon">👥</span>
+            <span className="muted2">{l.empty}</span>
+          </div>
+        </div>
+      )}
     </section>
   )
 }

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { formatUptime, stripMcCodes } from '../lib/format'
 
 function headUrl(nick) {
@@ -6,96 +6,141 @@ function headUrl(nick) {
 }
 
 function recentNicks(sessions, onlineSet, limit = 14) {
-  const entries = Object.entries(sessions || {})
+  return Object.entries(sessions || {})
     .map(([nick, segs]) => {
-      if (!nick || onlineSet.has(nick)) return null
-      if (!Array.isArray(segs)) return null
+      if (!nick || onlineSet.has(nick) || !Array.isArray(segs)) return null
       let lastT = 0
-      for (const s of segs) {
-        const end = s.end ?? Date.now()
-        lastT = Math.max(lastT, end, s.start)
-      }
+      for (const s of segs) lastT = Math.max(lastT, s.end ?? Date.now(), s.start)
       return { nick, lastT }
     })
     .filter(Boolean)
     .sort((a, b) => b.lastT - a.lastT)
     .slice(0, limit)
     .map((e) => e.nick)
-  return entries
 }
 
-export default function ServerCard({ server, hostPort, onlineSince, sessions, onPlayerClick, labels }) {
-  const l = labels || {}
-  const online = Boolean(server?.online)
-  const motd = stripMcCodes(server?.motd?.clean || server?.motd?.raw || server?.motd || 'Unknown server')
-  const subtitle = stripMcCodes(server?.motd?.html ? '' : server?.motd?.clean?.split('\n')?.[1] || '')
+function getPingColor(ping) {
+  if (ping === null || ping === undefined) return 'var(--text-3)'
+  if (ping < 80)  return 'var(--accent)'
+  if (ping < 150) return 'var(--yellow)'
+  return 'var(--red)'
+}
 
-  const list = server?.players?.list || []
+export default function ServerCard({ server, onlineSince, sessions, onPlayerClick, labels }) {
+  const l      = labels || {}
+  const online = Boolean(server?.online)
+  const motd   = stripMcCodes(server?.motd?.clean || server?.motd?.raw || server?.motd || '')
+  const motdLine2 = stripMcCodes(server?.motd?.clean?.split('\n')?.[1] || '')
+
+  const list       = server?.players?.list || []
   const listHidden = Boolean(server?.players?.listHidden)
-  const onlineSet = useMemo(() => new Set(list), [list])
-  const recent = useMemo(() => recentNicks(sessions, onlineSet), [sessions, onlineSet])
+  const onlineSet  = useMemo(() => new Set(list), [list])
+  const recent     = useMemo(() => recentNicks(sessions, onlineSet), [sessions, onlineSet])
+
+  const ping       = server?.ping ?? null
+  const pingSource = server?.pingSource || null
 
   return (
-    <section className="card fade-in server-card">
-      <header className="server-header">
+    <section className="card server-card fade-in">
+      {/* Header */}
+      <div className="server-header">
         <div className="server-ident">
-          {server?.favicon ? <img className="favicon" src={server.favicon} alt="" /> : <div className="favicon ghost" />}
+          {server?.favicon
+            ? <img className="favicon" src={server.favicon} alt="" />
+            : <div className="favicon-ghost">⛏️</div>
+          }
           <div>
-            <h2>{motd}</h2>
-            <p className="muted mono">{hostPort}</p>
+            <h2>{motd || l.subtitleFallback || 'Minecraft Server'}</h2>
+            {motdLine2 && <p style={{ margin: '3px 0 0', fontSize: 13, color: 'var(--text-2)' }}>{motdLine2}</p>}
           </div>
         </div>
-        <span className={`status ${online ? 'on' : 'off'}`}>
-          <span className="dot" /> {online ? l.online : l.offline}
+        <span className={`status-badge ${online ? 'online' : 'offline'}`}>
+          <span className="status-dot" />
+          {online ? l.online : l.offline}
         </span>
-      </header>
+      </div>
 
-      <p className="subtitle">{subtitle || l.subtitleFallback}</p>
+      {/* Metrics */}
+      <div className="metrics-grid">
+        <div className="metric-box">
+          <span className="metric-label">{l.players}</span>
+          <div className="metric-value">
+            <span style={{ color: online ? 'var(--accent)' : 'var(--text-3)' }}>
+              {server?.players?.online ?? 0}
+            </span>
+            <span style={{ color: 'var(--text-3)', fontSize: '0.85em' }}> / {server?.players?.max ?? 0}</span>
+          </div>
+        </div>
 
-      <div className="stats-grid">
-        <div>
-          <span className="label">{l.players}</span>
-          <strong className="tabular-nums">
-            {server?.players?.online ?? 0} / {server?.players?.max ?? 0}
-          </strong>
+        <div className="metric-box">
+          <span className="metric-label">{l.ping}</span>
+          <div className="metric-value" style={{ color: getPingColor(ping) }}>
+            {ping !== null ? `${ping} ms` : '—'}
+          </div>
+          {pingSource && (
+            <div className="ping-source">
+              {pingSource === 'direct' ? '🔌 direct' : `🌐 ${pingSource}`}
+            </div>
+          )}
         </div>
-        <div>
-          <span className="label">{l.ping}</span>
-          <strong className="tabular-nums">{server?.ping ?? '—'} ms</strong>
-        </div>
-        <div>
-          <span className="label">{l.uptime}</span>
-          <strong className="tabular-nums">{online ? formatUptime(onlineSince) : '—'}</strong>
+
+        <div className="metric-box">
+          <span className="metric-label">{l.uptime}</span>
+          <div className="metric-value" style={{ color: online ? 'var(--cyan)' : 'var(--text-3)', fontSize: '1.05rem' }}>
+            {online ? formatUptime(onlineSince) : '—'}
+          </div>
         </div>
       </div>
 
-      <div className="players-wrap">
-        <h3>{l.playersOnline}</h3>
+      {/* Players online */}
+      <div className="players-section">
+        <div className="players-header">
+          <h3>{l.playersOnline}</h3>
+          {list.length > 0 && (
+            <span className="players-count-chip">{list.length}</span>
+          )}
+        </div>
+
         {listHidden && (
-          <p className="list-hidden-note">
-            <span className="badge-local">{l.recentSeenBadge}</span> {l.listHidden}
-          </p>
+          <div className="list-hidden-note">
+            <span className="local-badge">СКРЫТ</span> {l.listHidden}
+          </div>
         )}
-        <div className="players-list">
-          {list.length === 0 && !listHidden && <p className="muted">{l.noPlayers}</p>}
+
+        <div className="players-grid">
+          {list.length === 0 && !listHidden && (
+            <p style={{ color: 'var(--text-3)', fontSize: 13, margin: 0 }}>{l.noPlayers}</p>
+          )}
           {list.map((nick) => (
-            <button key={nick} type="button" className="player-chip" onClick={() => onPlayerClick(nick)}>
-              <img src={headUrl(nick)} alt="" loading="lazy" width={20} height={20} />
+            <button
+              key={nick}
+              type="button"
+              className="player-chip"
+              onClick={() => onPlayerClick(nick)}
+            >
+              <img src={headUrl(nick)} alt="" loading="lazy" width={22} height={22} />
               <span className="player-nick">{nick}</span>
             </button>
           ))}
         </div>
+
+        {/* Recently seen */}
         {recent.length > 0 && (
-          <div className="recent-seen">
-            <h4>
-              {l.recentSeenTitle}{' '}
-              <span className="badge-local">{l.recentSeenBadge}</span>
-            </h4>
-            <p className="muted small recent-hint">{l.recentSeenHint}</p>
-            <div className="players-list">
+          <div className="recent-section">
+            <div className="recent-title">
+              {l.recentSeenTitle}
+              <span className="local-badge">{l.recentSeenBadge}</span>
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--text-3)', margin: '0 0 10px' }}>{l.recentSeenHint}</p>
+            <div className="players-grid">
               {recent.map((nick) => (
-                <button key={nick} type="button" className="player-chip player-chip-ghost" onClick={() => onPlayerClick(nick)}>
-                  <img src={headUrl(nick)} alt="" loading="lazy" width={20} height={20} />
+                <button
+                  key={nick}
+                  type="button"
+                  className="player-chip player-chip-ghost"
+                  onClick={() => onPlayerClick(nick)}
+                >
+                  <img src={headUrl(nick)} alt="" loading="lazy" width={22} height={22} />
                   <span className="player-nick">{nick}</span>
                 </button>
               ))}
