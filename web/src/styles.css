@@ -26,6 +26,36 @@ body {
     radial-gradient(700px 320px at 90% -20%, rgba(56, 189, 248, 0.07), transparent 60%),
     radial-gradient(circle at top, #121726 0%, var(--bg) 40%);
   color: var(--text);
+  overflow-x: hidden;
+}
+
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  inset: -20%;
+  pointer-events: none;
+  z-index: -1;
+}
+
+body::before {
+  background: radial-gradient(circle at 20% 20%, rgba(74, 222, 128, 0.08), transparent 45%);
+  animation: driftA 20s ease-in-out infinite alternate;
+}
+
+body::after {
+  background: radial-gradient(circle at 80% 30%, rgba(56, 189, 248, 0.07), transparent 42%);
+  animation: driftB 24s ease-in-out infinite alternate;
+}
+
+@keyframes driftA {
+  from { transform: translate3d(-2%, -1%, 0) scale(1); }
+  to { transform: translate3d(2%, 1.5%, 0) scale(1.05); }
+}
+
+@keyframes driftB {
+  from { transform: translate3d(2%, 0%, 0) scale(1); }
+  to { transform: translate3d(-2%, 1.8%, 0) scale(1.06); }
 }
 
 .app { max-width: 1120px; margin: 0 auto; padding: 18px; }
@@ -34,6 +64,7 @@ body {
 .header-sub { margin: 4px 0 0; font-size: 12px; }
 .topbar-badges { display: flex; gap: 8px; justify-content: flex-end; }
 .chip { border: 1px solid var(--border); border-radius: 999px; padding: 5px 9px; font-size: 12px; background: rgba(255,255,255,0.03); }
+.icon-btn { width: 34px; height: 34px; display: inline-grid; place-items: center; border-radius: 999px; }
 
 .tabs { display: flex; gap: 8px; flex-wrap: wrap; grid-column: 1 / -1; }
 .tabs button { background: transparent; border: 1px solid var(--border); color: var(--text); padding: 8px 11px; border-radius: 10px; cursor: pointer; transition: all .2s ease; }
@@ -74,6 +105,9 @@ body {
 .metrics { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin-bottom: 8px; }
 
 .chat-list { max-height: 280px; overflow: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; padding-right: 4px; }
+.chat-head h3 { margin: 0; }
+.chat-subtitle { margin: 4px 0 0; font-size: 13px; }
+.chat-auth-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .chat-item { display: flex; gap: 8px; align-items: flex-start; border: 1px solid var(--border); border-radius: 10px; padding: 7px; background: rgba(255,255,255,0.02); }
 .chat-item img, .chat-form img { width: 24px; height: 24px; border-radius: 6px; }
 .chat-form { display: flex; gap: 8px; }
@@ -91,9 +125,34 @@ button:hover { border-color: rgba(74, 222, 128, 0.45); }
 button:active { transform: translateY(1px); }
 input:focus, select:focus { outline: none; border-color: rgba(74, 222, 128, 0.55); }
 
-.settings { display: grid; gap: 10px; }
-.settings label { display: grid; gap: 6px; font-size: 14px; }
+.settings-pane { display: grid; gap: 10px; }
+.settings-pane label { display: grid; gap: 6px; font-size: 14px; }
+.settings-head { display: flex; justify-content: space-between; align-items: center; }
 .toggle-row { display: flex !important; justify-content: space-between; align-items: center; }
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 40;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.settings-drawer {
+  width: min(420px, 92vw);
+  height: 100%;
+  padding: 16px;
+  background: #121826;
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 30px rgba(0, 0, 0, 0.35);
+  animation: slideIn .18s ease-out;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(24px); opacity: 0.5; }
+  to { transform: translateX(0); opacity: 1; }
+}
 
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: grid; place-items: center; padding: 20px; }
 .modal { width: min(680px, 100%); max-height: 90vh; overflow: auto; background: #121826; border: 1px solid var(--border); border-radius: 16px; padding: 16px; position: relative; }
@@ -112,4 +171,5 @@ input:focus, select:focus { outline: none; border-color: rgba(74, 222, 128, 0.55
   .tabs button { white-space: nowrap; }
   .stats-grid, .metrics { grid-template-columns: 1fr; }
   .server-ident h2 { max-width: 68vw; font-size: 18px; }
+  .settings-drawer { width: 100%; }
 }

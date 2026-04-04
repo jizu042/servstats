@@ -15,10 +15,15 @@ export default function ChatPanel({ profile, messages, onSend, onLogin, onLogout
   const avatar = useMemo(() => profile?.nick ? `https://craft.ely.by/api/player/head/${encodeURIComponent(profile.nick)}` : '', [profile])
 
   return (
-    <section className="card">
-      <h3>{l.title}</h3>
+    <section className="card chat-card">
+      <div className="chat-head">
+        <div>
+          <h3>{l.title}</h3>
+          <p className="muted chat-subtitle">{l.subtitle}</p>
+        </div>
+      </div>
       {profile?.nick && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <div className="chat-auth-row">
           <div className="muted">{l.signedInAs} <b>{profile.nick}</b></div>
           {onLogout && <button onClick={onLogout}>{l.logout}</button>}
         </div>
@@ -30,6 +35,7 @@ export default function ChatPanel({ profile, messages, onSend, onLogin, onLogout
         </div>
       )}
       <div className="chat-list">
+        {messages.length === 0 && <p className="muted">{l.empty}</p>}
         {messages.map((m, i) => (
           <div className="chat-item" key={i}>
             <img src={`https://craft.ely.by/api/player/head/${encodeURIComponent(m.nick)}`} alt={m.nick} />

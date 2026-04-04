@@ -1,4 +1,4 @@
-export default function SettingsPanel({ settings, onChange, onAskNotifications, labels }) {
+export default function SettingsPanel({ settings, onChange, onAskNotifications, labels, onClose }) {
   const l = labels || {
     title: 'Settings',
     serverAddress: 'Server address',
@@ -10,8 +10,11 @@ export default function SettingsPanel({ settings, onChange, onAskNotifications, 
     requestNotifications: 'Request notifications'
   }
   return (
-    <section className="card settings">
-      <h3>{l.title}</h3>
+    <section className="settings-pane">
+      <div className="settings-head">
+        <h3>{l.title}</h3>
+        {onClose && <button onClick={onClose}>✕</button>}
+      </div>
       <label>
         {l.serverAddress}
         <input value={settings.hostPort} onChange={(e) => onChange({ hostPort: e.target.value })} placeholder="host:port" />

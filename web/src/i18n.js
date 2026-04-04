@@ -1,6 +1,7 @@
 export const I18N = {
   ru: {
     appTitle: 'Minecraft Server Monitor',
+    settingsButton: 'Настройки',
     tabs: { dashboard: 'Главная', stats: 'Статистика', chat: 'Чат', map: 'Карта', settings: 'Настройки' },
     mapReserved: 'Зарезервировано для интеграции BlueMap/Dynmap.',
     server: {
@@ -32,13 +33,15 @@ export const I18N = {
     },
     chat: {
       title: 'Чат',
+      subtitle: 'Глобальный realtime-чат',
       signedInAs: 'Вошли как',
       logout: 'Выйти',
       oauthNotConfigured: 'OAuth не настроен. Демо-режим.',
       signInPrompt: 'Войдите через ely.by для привязки ника',
       loginEly: 'Войти через ely.by',
       messagePlaceholder: 'Сообщение...',
-      send: 'Отправить'
+      send: 'Отправить',
+      empty: 'Пока нет сообщений'
     },
     player: {
       currentSession: 'Текущая сессия',
@@ -50,6 +53,7 @@ export const I18N = {
   },
   en: {
     appTitle: 'Minecraft Server Monitor',
+    settingsButton: 'Settings',
     tabs: { dashboard: 'Dashboard', stats: 'Stats', chat: 'Chat', map: 'Map', settings: 'Settings' },
     mapReserved: 'Reserved for BlueMap/Dynmap integration.',
     server: {
@@ -81,13 +85,15 @@ export const I18N = {
     },
     chat: {
       title: 'Chat',
+      subtitle: 'Global realtime chat',
       signedInAs: 'Signed in as',
       logout: 'Logout',
       oauthNotConfigured: 'OAuth is not configured. Demo mode enabled.',
       signInPrompt: 'Sign in via ely.by to link your nickname',
       loginEly: 'Login via ely.by',
       messagePlaceholder: 'Message...',
-      send: 'Send'
+      send: 'Send',
+      empty: 'No messages yet'
     },
     player: {
       currentSession: 'Current session',

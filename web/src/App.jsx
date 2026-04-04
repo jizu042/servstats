@@ -16,7 +16,7 @@ import {
   postChatMessage
 } from './lib/api'
 import { parseHostPort } from './lib/format'
-import { K, getOnlineSinceKey, readJson, writeJson } from './lib/storage'
+import { K, getOnlineSinceKey, readJson, readScopedJson, writeJson, writeScopedJson } from './lib/storage'
 import { notifyServerOnline, requestNotificationPermission } from './lib/notifications'
 import { getT } from './i18n'
 
@@ -30,16 +30,18 @@ const DEFAULTS = {
 }
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8787'
+const DEFAULT_STATS = { history24h: [], peak: 0, offlines: 0, avgUptime: '—', uptimes: [] }
 
 export default function App() {
   const [tab, setTab] = useState('dashboard')
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [settings, setSettings] = useState(() => ({ ...DEFAULTS, ...readJson(K.settings, {}) }))
   const [server, setServer] = useState(null)
   const prevOnlineRef = useRef(false)
   const [onlineSince, setOnlineSince] = useState(null)
   const [activeNick, setActiveNick] = useState('')
-  const [sessions, setSessions] = useState(() => readJson(K.sessions, {}))
-  const [stats, setStats] = useState(() => readJson(K.stats, { history24h: [], peak: 0, offlines: 0, avgUptime: '—', uptimes: [] }))
+  const [sessions, setSessions] = useState({})
+  const [stats, setStats] = useState(DEFAULT_STATS)
   const [chat, setChat] = useState([{ nick: 'System', text: 'Welcome to local chat demo.' }])
   const [rangeHours, setRangeHours] = useState(24)
   const [auth, setAuth] = useState({ enabled: false })
@@ -57,6 +59,9 @@ export default function App() {
   useEffect(() => {
     const existing = localStorage.getItem(getOnlineSinceKey(hostPort))
     setOnlineSince(existing ? Number(existing) : null)
+    setStats(readScopedJson(K.statsByServer, hostPort, DEFAULT_STATS))
+    setSessions(readScopedJson(K.sessionsByServer, hostPort, {}))
+    prevOnlineRef.current = false
   }, [hostPort])
 
   useEffect(() => {
@@ -85,7 +90,7 @@ export default function App() {
             const mm = String(Math.floor((avg % 3600) / 60)).padStart(2, '0')
             const ss = String(avg % 60).padStart(2, '0')
             const updated = { ...old, offlines: (old.offlines || 0) + 1, uptimes, avgUptime: `${hh}:${mm}:${ss}` }
-            writeJson(K.stats, updated)
+            writeScopedJson(K.statsByServer, hostPort, updated)
             return updated
           })
           localStorage.removeItem(getOnlineSinceKey(hostPort))
@@ -99,7 +104,7 @@ export default function App() {
             const history24h = [...old.history24h, point].slice(-limit)
             const peak = Math.max(old.peak || 0, point.v)
             const updated = { ...old, history24h, peak }
-            writeJson(K.stats, updated)
+            writeScopedJson(K.statsByServer, hostPort, updated)
             return updated
           })
 
@@ -117,7 +122,7 @@ export default function App() {
                 next[nick][next[nick].length - 1].end = now
               }
             }
-            writeJson(K.sessions, next)
+            writeScopedJson(K.sessionsByServer, hostPort, next)
             return next
           })
         }
@@ -192,16 +197,16 @@ export default function App() {
           const updated = {
             ...old,
             history24h: res.points,
-            peak: Math.max(old.peak || 0, Number(res.peak || 0)),
-            offlines: Number(res.offlines || old.offlines || 0),
-            avgUptime: avg ? `${hh}:${mm}:${ss}` : old.avgUptime
+            peak: Number(res.peak || 0),
+            offlines: Number(res.offlines || 0),
+            avgUptime: avg ? `${hh}:${mm}:${ss}` : '—'
           }
-          writeJson(K.stats, updated)
+          writeScopedJson(K.statsByServer, hostPort, updated)
           return updated
         })
       })
       .catch(() => {})
-  }, [tab, hp.host, hp.port, rangeHours])
+  }, [tab, hp.host, hp.port, rangeHours, hostPort])
 
   const activeSession = activeNick && sessions[activeNick]?.findLast((s) => !s.end)?.start
 
@@ -215,9 +220,10 @@ export default function App() {
         <div className="topbar-badges">
           <span className="chip mono">API: {settings.apiSource}</span>
           <span className="chip">{me?.nick ? `@${me.nick}` : 'Guest'}</span>
+          <button className="icon-btn" onClick={() => setIsSettingsOpen(true)} aria-label={t.settingsButton}>⚙</button>
         </div>
         <nav className="tabs">
-          {['dashboard', 'stats', 'chat', 'map', 'settings'].map((tabKey) => (
+          {['dashboard', 'stats', 'chat', 'map'].map((tabKey) => (
             <button key={tabKey} className={tab === tabKey ? 'active' : ''} onClick={() => setTab(tabKey)}>{t.tabs[tabKey]}</button>
           ))}
         </nav>
@@ -265,13 +271,18 @@ export default function App() {
 
       {tab === 'map' && <section className="card"><h3>{t.tabs.map}</h3><p className="muted">{t.mapReserved}</p></section>}
 
-      {tab === 'settings' && (
-        <SettingsPanel
-          settings={settings}
-          labels={t.settings}
-          onChange={(patch) => setSettings((s) => ({ ...s, ...patch }))}
-          onAskNotifications={requestNotificationPermission}
-        />
+      {isSettingsOpen && (
+        <div className="drawer-backdrop" onClick={() => setIsSettingsOpen(false)}>
+          <aside className="settings-drawer" onClick={(e) => e.stopPropagation()}>
+            <SettingsPanel
+              settings={settings}
+              labels={t.settings}
+              onClose={() => setIsSettingsOpen(false)}
+              onChange={(patch) => setSettings((s) => ({ ...s, ...patch }))}
+              onAskNotifications={requestNotificationPermission}
+            />
+          </aside>
+        </div>
       )}
 
       <PlayerModal
