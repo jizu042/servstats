@@ -4,7 +4,9 @@
       "Bash(npm install:*)",
       "Bash(ls -la web/src/*.css)",
       "Bash(ls -la */src/*.css)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }
