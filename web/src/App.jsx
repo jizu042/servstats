@@ -476,15 +476,78 @@ export default function App() {
           )}
 
           {tab === 'map' && (
-            <section className="card">
+            <div className="card fade-in">
               <div className="card-header">
-                <h2 className="card-title">{t.tabs.map}</h2>
+                <h2 className="card-title">📡 Локация и Тех. Данные</h2>
               </div>
-              <div className="no-data-placeholder">
-                <span className="no-data-icon">🗺️</span>
-                <span>{t.mapReserved}</span>
+              <div className="map-view-container">
+                <div className="details-grid">
+                  <div className="detail-source-card">
+                    <div className="detail-source-header">
+                      <div className="detail-source-icon">🌍</div>
+                      <div>
+                        <div className="detail-source-name">Геолокация</div>
+                        <div className="detail-source-url">Данные от ISMC API</div>
+                      </div>
+                    </div>
+                    <div className="detail-rows">
+                      <div className="detail-row">
+                        <span className="detail-row-label">Страна</span>
+                        <span className="detail-row-val">
+                          {serverDetails?.ismcserver?.location?.country || 'Неизвестно'}
+                          {serverDetails?.ismcserver?.location?.country && (
+                            <img
+                              src={`https://flagcdn.com/24x18/${serverDetails.ismcserver.location.country.toLowerCase()}.png`}
+                              alt="Flag"
+                              style={{ marginLeft: '8px', verticalAlign: 'middle', borderRadius: '2px' }}
+                            />
+                          )}
+                        </span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="detail-row-label">Город</span>
+                        <span className="detail-row-val">{serverDetails?.ismcserver?.location?.city || 'Неизвестно'}</span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="detail-row-label">Регион</span>
+                        <span className="detail-row-val">{serverDetails?.ismcserver?.location?.region || 'Неизвестно'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="detail-source-card">
+                    <div className="detail-source-header">
+                      <div className="detail-source-icon">🛠️</div>
+                      <div>
+                        <div className="detail-source-name">Технические Характеристики</div>
+                        <div className="detail-source-url">Версия и софт</div>
+                      </div>
+                    </div>
+                    <div className="detail-rows">
+                      <div className="detail-row">
+                        <span className="detail-row-label">Инстанс</span>
+                        <span className="detail-row-val">{serverDetails?.direct?.host || serverDetails?.mcstatus?.host}</span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="detail-row-label">Софт</span>
+                        <span className="detail-row-val">{serverDetails?.ismcserver?.software || serverDetails?.mcsrvstat?.software || 'Minecraft Server'}</span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="detail-row-label">Ядро</span>
+                        <span className="detail-row-val">{serverDetails?.ismcserver?.version || serverDetails?.direct?.version || 'Неизвестно'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="map-placeholder" style={{ marginTop: '20px', height: '240px', background: 'var(--bg-3)', border: '1px dashed var(--card-border)', borderRadius: 'var(--radius)', display: 'grid', placeItems: 'center', color: 'var(--text-3)' }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '32px', marginBottom: '10px' }}>🗺️</div>
+                    Интерактивная карта мира будет доступна в следующем обновлении.<br />
+                    <small style={{ opacity: 0.6 }}>Локация сервера определена успешно.</small>
+                  </div>
+                </div>
               </div>
-            </section>
+            </div>
           )}
         </main>
 
