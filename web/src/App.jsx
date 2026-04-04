@@ -213,6 +213,13 @@ export default function App() {
   }, [tab, hp.host, hp.port, rangeHours, hostPort])
 
   const activeSession = activeNick && sessions[activeNick]?.findLast((s) => !s.end)?.start
+  const recentPlayers = useMemo(() => {
+    return Object.entries(sessions)
+      .map(([nick, hist]) => ({ nick, last: hist?.[hist.length - 1]?.start || 0 }))
+      .sort((a, b) => b.last - a.last)
+      .slice(0, 8)
+      .map((x) => x.nick)
+  }, [sessions])
 
   return (
     <main className="app">
@@ -224,7 +231,7 @@ export default function App() {
         <div className="topbar-badges">
           <span className="chip mono">API: {settings.apiSource}</span>
           <span className="chip">{me?.nick ? `@${me.nick}` : 'Guest'}</span>
-          <button className="icon-btn" onClick={() => setIsSettingsOpen(true)} aria-label={t.settingsButton}>⚙</button>
+          <button className="settings-trigger" onClick={() => setIsSettingsOpen(true)} aria-label={t.settingsButton}>⚙ {t.settingsButton}</button>
         </div>
         <nav className="tabs">
           {['dashboard', 'stats', 'chat', 'map'].map((tabKey) => (
@@ -239,6 +246,7 @@ export default function App() {
           hostPort={hostPort}
           onlineSince={onlineSince}
           labels={t.server}
+          recentPlayers={recentPlayers}
           onPlayerClick={setActiveNick}
         />
       )}
@@ -247,7 +255,7 @@ export default function App() {
 
       {tab === 'chat' && (
         <ChatPanel
-          profile={me || (auth?.enabled ? null : { nick: 'Guest' })}
+          profile={me}
           messages={chat}
           authEnabled={auth?.enabled}
           authError={authError}

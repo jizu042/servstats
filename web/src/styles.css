@@ -39,12 +39,12 @@ body::after {
 }
 
 body::before {
-  background: radial-gradient(circle at 20% 20%, rgba(74, 222, 128, 0.08), transparent 45%);
+  background: radial-gradient(circle at 20% 20%, rgba(74, 222, 128, 0.13), transparent 46%);
   animation: driftA 20s ease-in-out infinite alternate;
 }
 
 body::after {
-  background: radial-gradient(circle at 80% 30%, rgba(56, 189, 248, 0.07), transparent 42%);
+  background: radial-gradient(circle at 80% 30%, rgba(56, 189, 248, 0.11), transparent 44%);
   animation: driftB 24s ease-in-out infinite alternate;
 }
 
@@ -58,13 +58,22 @@ body::after {
   to { transform: translate3d(-2%, 1.8%, 0) scale(1.06); }
 }
 
-.app { max-width: 1120px; margin: 0 auto; padding: 18px; }
+.app { max-width: 1120px; margin: 0 auto; padding: 18px; min-height: 100vh; }
 .topbar { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; margin-bottom: 14px; }
 .topbar h1 { margin: 0; font-size: 22px; letter-spacing: 0.2px; }
 .header-sub { margin: 4px 0 0; font-size: 12px; }
 .topbar-badges { display: flex; gap: 8px; justify-content: flex-end; }
 .chip { border: 1px solid var(--border); border-radius: 999px; padding: 5px 9px; font-size: 12px; background: rgba(255,255,255,0.03); }
 .icon-btn { width: 34px; height: 34px; display: inline-grid; place-items: center; border-radius: 999px; }
+.settings-trigger {
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.04);
+}
 
 .tabs { display: flex; gap: 8px; flex-wrap: wrap; grid-column: 1 / -1; }
 .tabs button { background: transparent; border: 1px solid var(--border); color: var(--text); padding: 8px 11px; border-radius: 10px; cursor: pointer; transition: all .2s ease; }
@@ -75,7 +84,7 @@ body::after {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 16px;
+  padding: 18px;
   backdrop-filter: blur(8px);
   box-shadow: var(--shadow);
 }
@@ -112,6 +121,7 @@ body::after {
 .chat-item img, .chat-form img { width: 24px; height: 24px; border-radius: 6px; }
 .chat-form { display: flex; gap: 8px; }
 .chat-form input { flex: 1; }
+.chat-card { max-width: 100%; }
 
 input, select, button {
   background: rgba(255,255,255,0.03);
@@ -123,6 +133,7 @@ input, select, button {
 }
 button:hover { border-color: rgba(74, 222, 128, 0.45); }
 button:active { transform: translateY(1px); }
+button:disabled { opacity: 0.55; cursor: not-allowed; }
 input:focus, select:focus { outline: none; border-color: rgba(74, 222, 128, 0.55); }
 
 .settings-pane { display: grid; gap: 10px; }

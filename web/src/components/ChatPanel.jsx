@@ -34,7 +34,7 @@ export default function ChatPanel({ profile, messages, onSend, onLogin, onLogout
       {!profile?.nick && (
         <div>
           <p className="muted">{authEnabled ? l.signInPrompt : l.oauthNotConfigured}</p>
-          {onLogin && <button onClick={onLogin}>{l.loginEly}</button>}
+          {onLogin && <button onClick={onLogin} disabled={!authEnabled}>{l.loginEly}</button>}
           {(authError || !authEnabled) && <p className="warn-text">{authError || l.authNotReady}</p>}
         </div>
       )}

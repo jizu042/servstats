@@ -1,6 +1,6 @@
 import { formatUptime, stripMcCodes } from '../lib/format'
 
-export default function ServerCard({ server, hostPort, onlineSince, onPlayerClick, labels }) {
+export default function ServerCard({ server, hostPort, onlineSince, onPlayerClick, labels, recentPlayers = [] }) {
   const l = labels || {
     online: 'Online',
     offline: 'Offline',
@@ -64,6 +64,19 @@ export default function ServerCard({ server, hostPort, onlineSince, onPlayerClic
             </button>
           ))}
         </div>
+        {hasHiddenList && recentPlayers.length > 0 && (
+          <>
+            <h4 className="muted" style={{ marginTop: 12, marginBottom: 6 }}>Recent seen</h4>
+            <div className="players-list">
+              {recentPlayers.map((nick) => (
+                <button key={`recent-${nick}`} className="player-chip" onClick={() => onPlayerClick(nick)}>
+                  <img src={`https://craft.ely.by/api/player/head/${encodeURIComponent(nick)}`} alt={nick} loading="lazy" />
+                  <span>{nick}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </section>
   )
