@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 
-export default function ChatPanel({ profile, messages, onSend, onLogin, onLogout, authEnabled, labels }) {
+export default function ChatPanel({ profile, messages, onSend, onLogin, onLogout, authEnabled, labels, authError }) {
   const l = labels || {
     title: 'Chat',
     signedInAs: 'Signed in as',
@@ -10,7 +10,8 @@ export default function ChatPanel({ profile, messages, onSend, onLogin, onLogout
     loginEly: 'Login via ely.by',
     messagePlaceholder: 'Message...',
     send: 'Send'
-  }
+    empty: 'No messages yet',
+    authNotReady: 'ely.by OAuth is not configured on the backend yet'
   const [text, setText] = useState('')
   const avatar = useMemo(() => profile?.nick ? `https://craft.ely.by/api/player/head/${encodeURIComponent(profile.nick)}` : '', [profile])
 
@@ -31,7 +32,8 @@ export default function ChatPanel({ profile, messages, onSend, onLogin, onLogout
       {!profile?.nick && (
         <div>
           <p className="muted">{authEnabled ? l.signInPrompt : l.oauthNotConfigured}</p>
-          {onLogin && authEnabled && <button onClick={onLogin}>{l.loginEly}</button>}
+          {onLogin && <button onClick={onLogin}>{l.loginEly}</button>}
+          {(authError || !authEnabled) && <p className="warn-text">{authError || l.authNotReady}</p>}
         </div>
       )}
       <div className="chat-list">
@@ -41,7 +43,7 @@ export default function ChatPanel({ profile, messages, onSend, onLogin, onLogout
             <img src={`https://craft.ely.by/api/player/head/${encodeURIComponent(m.nick)}`} alt={m.nick} />
             <div>
               <b>{m.nick}</b>
-              <p>{m.text}</p>
+              <p className="chat-text">{m.text}</p>
               <small className="muted mono">{m.ts ? new Date(m.ts).toLocaleTimeString() : ''}</small>
             </div>
           </div>

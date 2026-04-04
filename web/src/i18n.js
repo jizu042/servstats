@@ -12,7 +12,8 @@ export const I18N = {
       ping: 'Пинг',
       uptime: 'Uptime',
       playersOnline: 'Игроки онлайн',
-      noPlayers: 'Сейчас игроков нет'
+      noPlayers: 'Сейчас игроков нет',
+      hiddenList: 'Сервер скрывает список игроков'
     },
     settings: {
       title: 'Настройки',
@@ -29,7 +30,8 @@ export const I18N = {
       onlinePlayers: 'Онлайн игроков',
       peak: 'Пик онлайна',
       offlines: 'Краши/оффлайны',
-      avgUptime: 'Средний uptime'
+      avgUptime: 'Средний uptime',
+      noData: 'Недостаточно данных по этому серверу. Подождите несколько циклов опроса.'
     },
     chat: {
       title: 'Чат',
@@ -41,7 +43,8 @@ export const I18N = {
       loginEly: 'Войти через ely.by',
       messagePlaceholder: 'Сообщение...',
       send: 'Отправить',
-      empty: 'Пока нет сообщений'
+      empty: 'Пока нет сообщений',
+      authNotReady: 'Авторизация через ely.by пока не настроена на сервере'
     },
     player: {
       currentSession: 'Текущая сессия',
@@ -64,7 +67,8 @@ export const I18N = {
       ping: 'Ping',
       uptime: 'Uptime',
       playersOnline: 'Players online',
-      noPlayers: 'No players online'
+      noPlayers: 'No players online',
+      hiddenList: 'Server hides the online player list'
     },
     settings: {
       title: 'Settings',
@@ -81,7 +85,8 @@ export const I18N = {
       onlinePlayers: 'Online players',
       peak: 'Peak online',
       offlines: 'Crashes/offlines',
-      avgUptime: 'Avg uptime'
+      avgUptime: 'Avg uptime',
+      noData: 'Not enough data for this server yet. Wait for several polling cycles.'
     },
     chat: {
       title: 'Chat',
@@ -93,7 +98,8 @@ export const I18N = {
       loginEly: 'Login via ely.by',
       messagePlaceholder: 'Message...',
       send: 'Send',
-      empty: 'No messages yet'
+      empty: 'No messages yet',
+      authNotReady: 'ely.by OAuth is not configured on the backend yet'
     },
     player: {
       currentSession: 'Current session',

@@ -54,3 +54,9 @@ export function getChatStreamUrl(baseUrl) {
 export function getElyLoginStartUrl(baseUrl) {
   return `${baseUrl.replace(/\/$/, '')}/api/auth/ely/start?redirect=1`
 }
+
+export async function requestElyStart(baseUrl) {
+  const res = await fetch(`${baseUrl.replace(/\/$/, '')}/api/auth/ely/start`, { credentials: 'include' })
+  if (!res.ok) throw new Error('Failed to init ely login')
+  return res.json()
+}

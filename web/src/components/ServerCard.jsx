@@ -9,11 +9,16 @@ export default function ServerCard({ server, hostPort, onlineSince, onPlayerClic
     ping: 'Ping',
     uptime: 'Uptime',
     playersOnline: 'Players online',
-    noPlayers: 'No players online'
+    noPlayers: 'No players online',
+    hiddenList: 'Server hides the online player list'
   }
   const online = Boolean(server?.online)
   const motd = stripMcCodes(server?.motd?.clean || server?.motd?.raw || server?.motd || 'Unknown server')
   const subtitle = stripMcCodes(server?.motd?.html ? '' : server?.motd?.clean?.split('\n')?.[1] || '')
+
+  const list = server?.players?.list || []
+  const onlineCount = Number(server?.players?.online || 0)
+  const hasHiddenList = online && onlineCount > 0 && list.length === 0
 
   return (
     <section className="card fade-in">
@@ -50,8 +55,9 @@ export default function ServerCard({ server, hostPort, onlineSince, onPlayerClic
       <div className="players-wrap">
         <h3>{l.playersOnline}</h3>
         <div className="players-list">
-          {(server?.players?.list || []).length === 0 && <p className="muted">{l.noPlayers}</p>}
-          {(server?.players?.list || []).map((nick) => (
+          {list.length === 0 && !hasHiddenList && <p className="muted">{l.noPlayers}</p>}
+          {hasHiddenList && <p className="muted">{l.hiddenList}</p>}
+          {list.map((nick) => (
             <button key={nick} className="player-chip" onClick={() => onPlayerClick(nick)}>
               <img src={`https://craft.ely.by/api/player/head/${encodeURIComponent(nick)}`} alt={nick} loading="lazy" />
               <span>{nick}</span>

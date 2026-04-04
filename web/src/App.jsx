@@ -11,9 +11,9 @@ import {
   fetchServerStatus,
   fetchStatsHistory,
   getChatStreamUrl,
-  getElyLoginStartUrl,
   logout,
-  postChatMessage
+  postChatMessage,
+  requestElyStart
 } from './lib/api'
 import { parseHostPort } from './lib/format'
 import { K, getOnlineSinceKey, readJson, readScopedJson, writeJson, writeScopedJson } from './lib/storage'
@@ -45,6 +45,7 @@ export default function App() {
   const [chat, setChat] = useState([{ nick: 'System', text: 'Welcome to local chat demo.' }])
   const [rangeHours, setRangeHours] = useState(24)
   const [auth, setAuth] = useState({ enabled: false })
+  const [authError, setAuthError] = useState('')
   const [me, setMe] = useState(null)
 
   const hp = useMemo(() => parseHostPort(settings.hostPort), [settings.hostPort])
@@ -194,13 +195,16 @@ export default function App() {
           const hh = String(Math.floor(avg / 3600)).padStart(2, '0')
           const mm = String(Math.floor((avg % 3600) / 60)).padStart(2, '0')
           const ss = String(avg % 60).padStart(2, '0')
-          const updated = {
-            ...old,
-            history24h: res.points,
-            peak: Number(res.peak || 0),
-            offlines: Number(res.offlines || 0),
-            avgUptime: avg ? `${hh}:${mm}:${ss}` : '—'
-          }
+          const hasBackendData = Array.isArray(res.points) && res.points.length > 0
+          const updated = hasBackendData
+            ? {
+                ...old,
+                history24h: res.points,
+                peak: Number(res.peak || 0),
+                offlines: Number(res.offlines || 0),
+                avgUptime: avg ? `${hh}:${mm}:${ss}` : '—'
+              }
+            : old
           writeScopedJson(K.statsByServer, hostPort, updated)
           return updated
         })
@@ -246,14 +250,25 @@ export default function App() {
           profile={me || (auth?.enabled ? null : { nick: 'Guest' })}
           messages={chat}
           authEnabled={auth?.enabled}
+          authError={authError}
           labels={t.chat}
-          onLogin={() => {
-            window.location.href = getElyLoginStartUrl(API_BASE)
+          onLogin={async () => {
+            try {
+              const start = await requestElyStart(API_BASE)
+              if (!start?.enabled || !start?.url) {
+                setAuthError(t.chat.authNotReady)
+                return
+              }
+              window.location.href = start.url
+            } catch {
+              setAuthError(t.chat.authNotReady)
+            }
           }}
           onLogout={async () => {
             try {
               await logout(API_BASE)
               setMe(null)
+              setAuthError('')
             } catch {
               // ignore
             }
@@ -271,7 +286,7 @@ export default function App() {
 
       {tab === 'map' && <section className="card"><h3>{t.tabs.map}</h3><p className="muted">{t.mapReserved}</p></section>}
 
-      {isSettingsOpen && (
+      {isSettingsOpen && !activeNick && (
         <div className="drawer-backdrop" onClick={() => setIsSettingsOpen(false)}>
           <aside className="settings-drawer" onClick={(e) => e.stopPropagation()}>
             <SettingsPanel

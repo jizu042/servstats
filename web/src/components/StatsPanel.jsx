@@ -17,7 +17,8 @@ export default function StatsPanel({ stats, labels }) {
     onlinePlayers: 'Online players',
     peak: 'Peak online',
     offlines: 'Crashes/offlines',
-    avgUptime: 'Avg uptime'
+    avgUptime: 'Avg uptime',
+    noData: 'Not enough data for this server yet. Wait for several polling cycles.'
   }
   const points = stats.history24h || []
   const fmt = stats.rangeHours > 24
@@ -48,7 +49,7 @@ export default function StatsPanel({ stats, labels }) {
         <div><span className="label">{l.offlines}</span><strong>{stats.offlines ?? 0}</strong></div>
         <div><span className="label">{l.avgUptime}</span><strong>{stats.avgUptime ?? '—'}</strong></div>
       </div>
-      <Line data={data} />
+      {points.length > 0 ? <Line data={data} /> : <p className="muted">{l.noData}</p>}
     </section>
   )
 }

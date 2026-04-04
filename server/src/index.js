@@ -107,7 +107,12 @@ app.get('/api/auth/ely/start', (req, res) => {
   const clientId = process.env.ELY_OAUTH_CLIENT_ID
   const redirectUri = process.env.ELY_OAUTH_REDIRECT_URI
   const enabled = Boolean(clientId && process.env.ELY_OAUTH_CLIENT_SECRET && redirectUri)
-  if (!enabled) return res.status(501).json({ enabled: false, error: 'ely oauth is not configured' })
+  if (!enabled) {
+    if (String(req.query.redirect || '') === '1') {
+      return res.redirect(`${FRONTEND_URL.replace(/\/$/, '')}/?auth=ely_not_configured`)
+    }
+    return res.json({ enabled: false, error: 'ely oauth is not configured' })
+  }
 
   const state = crypto.randomBytes(16).toString('hex')
   const params = new URLSearchParams({
