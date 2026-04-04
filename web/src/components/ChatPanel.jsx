@@ -3,15 +3,17 @@ import { useMemo, useState } from 'react'
 export default function ChatPanel({ profile, messages, onSend, onLogin, onLogout, authEnabled, labels, authError }) {
   const l = labels || {
     title: 'Chat',
+    subtitle: 'Global realtime chat',
     signedInAs: 'Signed in as',
     logout: 'Logout',
     oauthNotConfigured: 'OAuth not configured. Demo mode enabled.',
     signInPrompt: 'Sign in via ely.by to link your nickname',
     loginEly: 'Login via ely.by',
     messagePlaceholder: 'Message...',
-    send: 'Send'
+    send: 'Send',
     empty: 'No messages yet',
     authNotReady: 'ely.by OAuth is not configured on the backend yet'
+  }
   const [text, setText] = useState('')
   const avatar = useMemo(() => profile?.nick ? `https://craft.ely.by/api/player/head/${encodeURIComponent(profile.nick)}` : '', [profile])
 
