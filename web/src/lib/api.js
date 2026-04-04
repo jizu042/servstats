@@ -22,9 +22,9 @@ export async function postChatMessage(baseUrl, nick, text) {
   return res.json()
 }
 
-export async function fetchStatsHistory(baseUrl, host, port, hours = 24) {
+export async function fetchStatsHistory(baseUrl, host, port, hours = 24, signal) {
   const url = `${baseUrl.replace(/\/$/, '')}/api/stats/history?host=${encodeURIComponent(host)}&port=${encodeURIComponent(port)}&hours=${encodeURIComponent(hours)}`
-  const res = await fetch(url, { credentials: 'include' })
+  const res = await fetch(url, { credentials: 'include', signal })
   if (!res.ok) throw new Error('Failed to fetch stats history')
   return res.json()
 }
@@ -53,10 +53,4 @@ export function getChatStreamUrl(baseUrl) {
 
 export function getElyLoginStartUrl(baseUrl) {
   return `${baseUrl.replace(/\/$/, '')}/api/auth/ely/start?redirect=1`
-}
-
-export async function requestElyStart(baseUrl) {
-  const res = await fetch(`${baseUrl.replace(/\/$/, '')}/api/auth/ely/start`, { credentials: 'include' })
-  if (!res.ok) throw new Error('Failed to init ely login')
-  return res.json()
 }

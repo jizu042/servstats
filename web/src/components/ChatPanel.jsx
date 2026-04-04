@@ -1,71 +1,117 @@
 import { useMemo, useState } from 'react'
 
-export default function ChatPanel({ profile, messages, onSend, onLogin, onLogout, authEnabled, labels, authError, onNickClick, chatLoading, chatError, sending, sseState, canSend }) {
-  const l = labels || {
-    title: 'Chat',
-    subtitle: 'Global realtime chat',
-    signedInAs: 'Signed in as',
-    logout: 'Logout',
-    oauthNotConfigured: 'OAuth not configured. Demo mode enabled.',
-    signInPrompt: 'Sign in via ely.by to link your nickname',
-    loginEly: 'Login via ely.by',
-    messagePlaceholder: 'Message...',
-    send: 'Send',
-    empty: 'No messages yet',
-    authNotReady: 'ely.by OAuth is not configured on the backend yet',
-    loadError: 'Failed to load chat history',
-    sendError: 'Failed to send message',
-    reconnecting: 'Reconnecting realtime…'
-  }
+function headUrl(nick) {
+  return `https://craft.ely.by/api/player/head/${encodeURIComponent(nick)}`
+}
+
+export default function ChatPanel({
+  profile,
+  messages,
+  onSend,
+  onLogin,
+  onLogout,
+  authEnabled,
+  labels,
+  loadState,
+  streamState,
+  sendError,
+  onRetryLoad
+}) {
+  const l = labels || {}
   const [text, setText] = useState('')
-  const avatar = useMemo(() => profile?.nick ? `https://craft.ely.by/api/player/head/${encodeURIComponent(profile.nick)}` : '', [profile])
+  const avatar = useMemo(
+    () => (profile?.nick ? headUrl(profile.nick) : ''),
+    [profile?.nick]
+  )
+
+  const streamLabel =
+    streamState?.status === 'live'
+      ? l.streamLive
+      : streamState?.status === 'reconnecting'
+        ? l.streamReconnecting
+        : streamState?.status === 'error'
+          ? l.streamError
+          : '…'
 
   return (
     <section className="card chat-card">
-      <div className="chat-head">
-        <div>
-          <h3>{l.title}</h3>
-          <p className="muted chat-subtitle">{l.subtitle}</p>
-        </div>
+      <div className="chat-card-header">
+        <h3>{l.title}</h3>
+        <span className={`stream-pill stream-${streamState?.status || 'connecting'}`}>{streamLabel}</span>
       </div>
+
       {profile?.nick && (
-        <div className="chat-auth-row">
-          <div className="muted chat-profile-inline">
-            <img src={`https://craft.ely.by/api/player/head/${encodeURIComponent(profile.nick)}`} alt={profile.nick} />
-            <span>{l.signedInAs} <b>{profile.nick}</b></span>
+        <div className="chat-profile-row">
+          <div className="chat-profile-ident">
+            {avatar ? <img src={avatar} alt="" className="chat-profile-avatar" width={28} height={28} /> : null}
+            <span className="muted">
+              {l.signedInAs} <b>{profile.nick}</b>
+            </span>
           </div>
-          {onLogout && <button onClick={onLogout}>{l.logout}</button>}
+          {onLogout && (
+            <button type="button" onClick={onLogout}>
+              {l.logout}
+            </button>
+          )}
         </div>
       )}
+
       {!profile?.nick && (
-        <div>
+        <div className="chat-guest-block">
           <p className="muted">{authEnabled ? l.signInPrompt : l.oauthNotConfigured}</p>
-          {onLogin && <button onClick={onLogin} disabled={!authEnabled}>{l.loginEly}</button>}
-          {(authError || !authEnabled) && <p className="warn-text">{authError || l.authNotReady}</p>}
+          {onLogin && authEnabled && (
+            <button type="button" onClick={onLogin}>
+              {l.loginEly}
+            </button>
+          )}
         </div>
       )}
-      <div className="chat-list">
-        {chatLoading && <p className="muted">Loading…</p>}
-        {chatError && <p className="warn-text">{chatError}</p>}
-        {sseState === 'reconnecting' && <p className="muted mono">{l.reconnecting}</p>}
-        {messages.length === 0 && <p className="muted">{l.empty}</p>}
+
+      {loadState === 'loading' && <p className="muted chat-meta">{l.loadingHistory}</p>}
+      {loadState === 'error' && (
+        <div className="chat-error-banner">
+          <span>{l.loadHistoryError}</span>
+          <button type="button" onClick={onRetryLoad}>
+            {l.retry}
+          </button>
+        </div>
+      )}
+
+      <div className="chat-scroll">
+        {loadState === 'ready' && messages.length === 0 && <p className="muted chat-meta">{l.emptyChat}</p>}
         {messages.map((m, i) => (
-          <div className="chat-item" key={i}>
-            <img src={`https://craft.ely.by/api/player/head/${encodeURIComponent(m.nick)}`} alt={m.nick} />
-            <div>
-              <button type="button" className="chat-nick-btn" onClick={() => onNickClick?.(m.nick)}>
-                <span>{m.nick}</span>
-              </button>
+          <div className="chat-item" key={`${m.ts}-${i}-${m.nick}`}>
+            <img src={headUrl(m.nick)} alt="" width={24} height={24} />
+            <div className="chat-item-body">
+              <div className="chat-item-head">
+                <b className="chat-nick">{m.nick}</b>
+                <small className="muted mono">{m.ts ? new Date(m.ts).toLocaleTimeString() : ''}</small>
+              </div>
               <p className="chat-text">{m.text}</p>
-              <small className="muted mono">{m.ts ? new Date(m.ts).toLocaleTimeString() : ''}</small>
             </div>
           </div>
         ))}
       </div>
-      <form className="chat-form" onSubmit={(e) => { e.preventDefault(); if (!text.trim()) return; onSend(text); setText('') }}>
-        <img src={avatar || 'https://craft.ely.by/api/player/head/Steve'} alt="me" />
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder={l.messagePlaceholder} disabled={!canSend || sending} />
-        <button type="submit" disabled={!canSend || sending}>{sending ? '…' : l.send}</button>
+
+      {sendError && <p className="chat-send-error">{sendError}</p>}
+
+      <form
+        className="chat-form"
+        onSubmit={async (e) => {
+          e.preventDefault()
+          const trimmed = text.trim()
+          if (!trimmed) return
+          try {
+            await onSend(trimmed)
+            setText('')
+          } catch {
+            /* error surfaced via sendError */
+          }
+        }}
+      >
+        <img src={avatar || headUrl('Steve')} alt="" width={28} height={28} />
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder={l.messagePlaceholder} />
+        <button type="submit">{l.send}</button>
       </form>
     </section>
   )

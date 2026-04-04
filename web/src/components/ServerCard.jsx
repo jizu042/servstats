@@ -1,30 +1,45 @@
+import { useMemo } from 'react'
 import { formatUptime, stripMcCodes } from '../lib/format'
 
-export default function ServerCard({ server, hostPort, onlineSince, onPlayerClick, labels, recentPlayers = [] }) {
-  const l = labels || {
-    online: 'Online',
-    offline: 'Offline',
-    subtitleFallback: 'Minecraft server monitor',
-    players: 'Players',
-    ping: 'Ping',
-    uptime: 'Uptime',
-    playersOnline: 'Players online',
-    noPlayers: 'No players online',
-    hiddenList: 'Server hides the online player list'
-  }
+function headUrl(nick) {
+  return `https://craft.ely.by/api/player/head/${encodeURIComponent(nick)}`
+}
+
+function recentNicks(sessions, onlineSet, limit = 14) {
+  const entries = Object.entries(sessions || {})
+    .map(([nick, segs]) => {
+      if (!nick || onlineSet.has(nick)) return null
+      if (!Array.isArray(segs)) return null
+      let lastT = 0
+      for (const s of segs) {
+        const end = s.end ?? Date.now()
+        lastT = Math.max(lastT, end, s.start)
+      }
+      return { nick, lastT }
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.lastT - a.lastT)
+    .slice(0, limit)
+    .map((e) => e.nick)
+  return entries
+}
+
+export default function ServerCard({ server, hostPort, onlineSince, sessions, onPlayerClick, labels }) {
+  const l = labels || {}
   const online = Boolean(server?.online)
   const motd = stripMcCodes(server?.motd?.clean || server?.motd?.raw || server?.motd || 'Unknown server')
   const subtitle = stripMcCodes(server?.motd?.html ? '' : server?.motd?.clean?.split('\n')?.[1] || '')
 
   const list = server?.players?.list || []
-  const onlineCount = Number(server?.players?.online || 0)
-  const hasHiddenList = online && onlineCount > 0 && list.length === 0
+  const listHidden = Boolean(server?.players?.listHidden)
+  const onlineSet = useMemo(() => new Set(list), [list])
+  const recent = useMemo(() => recentNicks(sessions, onlineSet), [sessions, onlineSet])
 
   return (
-    <section className="card fade-in">
+    <section className="card fade-in server-card">
       <header className="server-header">
         <div className="server-ident">
-          {server?.favicon ? <img className="favicon" src={server.favicon} alt="favicon" /> : <div className="favicon ghost" />}
+          {server?.favicon ? <img className="favicon" src={server.favicon} alt="" /> : <div className="favicon ghost" />}
           <div>
             <h2>{motd}</h2>
             <p className="muted mono">{hostPort}</p>
@@ -40,42 +55,52 @@ export default function ServerCard({ server, hostPort, onlineSince, onPlayerClic
       <div className="stats-grid">
         <div>
           <span className="label">{l.players}</span>
-          <strong>{server?.players?.online ?? 0} / {server?.players?.max ?? 0}</strong>
+          <strong className="tabular-nums">
+            {server?.players?.online ?? 0} / {server?.players?.max ?? 0}
+          </strong>
         </div>
         <div>
           <span className="label">{l.ping}</span>
-          <strong>{server?.ping ?? '—'} ms</strong>
+          <strong className="tabular-nums">{server?.ping ?? '—'} ms</strong>
         </div>
         <div>
           <span className="label">{l.uptime}</span>
-          <strong>{online ? formatUptime(onlineSince) : '—'}</strong>
+          <strong className="tabular-nums">{online ? formatUptime(onlineSince) : '—'}</strong>
         </div>
       </div>
 
       <div className="players-wrap">
         <h3>{l.playersOnline}</h3>
+        {listHidden && (
+          <p className="list-hidden-note">
+            <span className="badge-local">{l.recentSeenBadge}</span> {l.listHidden}
+          </p>
+        )}
         <div className="players-list">
-          {list.length === 0 && !hasHiddenList && <p className="muted">{l.noPlayers}</p>}
-          {hasHiddenList && <p className="muted">{l.hiddenList}</p>}
+          {list.length === 0 && !listHidden && <p className="muted">{l.noPlayers}</p>}
           {list.map((nick) => (
-            <button key={nick} className="player-chip" onClick={() => onPlayerClick(nick)}>
-              <img src={`https://craft.ely.by/api/player/head/${encodeURIComponent(nick)}`} alt={nick} loading="lazy" />
-              <span>{nick}</span>
+            <button key={nick} type="button" className="player-chip" onClick={() => onPlayerClick(nick)}>
+              <img src={headUrl(nick)} alt="" loading="lazy" width={20} height={20} />
+              <span className="player-nick">{nick}</span>
             </button>
           ))}
         </div>
-        {hasHiddenList && recentPlayers.length > 0 && (
-          <>
-            <h4 className="muted" style={{ marginTop: 12, marginBottom: 6 }}>Recent seen</h4>
+        {recent.length > 0 && (
+          <div className="recent-seen">
+            <h4>
+              {l.recentSeenTitle}{' '}
+              <span className="badge-local">{l.recentSeenBadge}</span>
+            </h4>
+            <p className="muted small recent-hint">{l.recentSeenHint}</p>
             <div className="players-list">
-              {recentPlayers.map((nick) => (
-                <button key={`recent-${nick}`} className="player-chip" onClick={() => onPlayerClick(nick)}>
-                  <img src={`https://craft.ely.by/api/player/head/${encodeURIComponent(nick)}`} alt={nick} loading="lazy" />
-                  <span>{nick}</span>
+              {recent.map((nick) => (
+                <button key={nick} type="button" className="player-chip player-chip-ghost" onClick={() => onPlayerClick(nick)}>
+                  <img src={headUrl(nick)} alt="" loading="lazy" width={20} height={20} />
+                  <span className="player-nick">{nick}</span>
                 </button>
               ))}
             </div>
-          </>
+          </div>
         )}
       </div>
     </section>

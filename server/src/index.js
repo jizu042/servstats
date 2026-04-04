@@ -11,6 +11,12 @@ const OAUTH_STATE_COOKIE = 'msm_oauth_state'
 const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-secret-change-me'
 const FRONTEND_URL = process.env.APP_BASE_URL || process.env.FRONTEND_URL || 'http://localhost:5173'
 const chatClients = new Set()
+
+function redirectToFrontend(res, searchParams) {
+  const base = FRONTEND_URL.replace(/\/$/, '')
+  const q = new URLSearchParams(searchParams)
+  return res.redirect(`${base}/?${q.toString()}`)
+}
 let redisSubscriber = null
 
 app.use(cors({ origin: CORS_ORIGIN === '*' ? true : CORS_ORIGIN, credentials: true }))
@@ -34,11 +40,12 @@ app.get('/api/status', async (req, res) => {
     }
     res.json(data)
   } catch (error) {
+    console.warn(`[status] fetch failed for ${host}:${port} (${source}):`, error?.message || error)
     res.status(502).json({
       online: false,
       host,
       port,
-      players: { online: 0, max: 0, list: [] },
+      players: { online: 0, max: 0, list: [], listHidden: false },
       motd: { clean: 'Offline', raw: 'Offline' },
       ping: null,
       error: error?.message || 'status fetch failed'
@@ -76,24 +83,29 @@ app.get('/api/chat/stream', (req, res) => {
 })
 
 app.post('/api/chat/messages', async (req, res) => {
-  const me = getUserFromRequest(req)
-  const nick = String(me?.nick || req.body?.nick || 'Guest').slice(0, 24)
-  const text = String(req.body?.text || '').trim().slice(0, 300)
-  if (!text) return res.status(400).json({ error: 'text is required' })
-  const msg = { nick, text, ts: Date.now() }
+  try {
+    const me = getUserFromRequest(req)
+    const nick = String(me?.nick || req.body?.nick || 'Guest').slice(0, 24)
+    const text = String(req.body?.text || '').trim().slice(0, 300)
+    if (!text) return res.status(400).json({ error: 'text is required' })
+    const msg = { nick, text, ts: Date.now() }
 
-  if (hasDb && pool) {
-    await pool.query('INSERT INTO chat_messages(nick, text, ts) VALUES($1, $2, TO_TIMESTAMP($3 / 1000.0))', [nick, text, msg.ts])
-    if (redis?.isOpen) {
-      await redis.publish('chat:messages', JSON.stringify(msg))
+    if (hasDb && pool) {
+      await pool.query('INSERT INTO chat_messages(nick, text, ts) VALUES($1, $2, TO_TIMESTAMP($3 / 1000.0))', [nick, text, msg.ts])
+      if (redis?.isOpen) {
+        await redis.publish('chat:messages', JSON.stringify(msg))
+      }
+      broadcastChat(msg)
+      return res.status(201).json(msg)
     }
-    broadcastChat(msg)
-    return res.status(201).json(msg)
-  }
 
-  chatMessages.push(msg)
-  broadcastChat(msg)
-  res.status(201).json(msg)
+    chatMessages.push(msg)
+    broadcastChat(msg)
+    res.status(201).json(msg)
+  } catch (e) {
+    console.error('[chat] post message failed', e?.message || e)
+    res.status(500).json({ error: 'failed to save message' })
+  }
 })
 
 app.get('/api/auth/ely/status', (_req, res) => {
@@ -109,9 +121,9 @@ app.get('/api/auth/ely/start', (req, res) => {
   const enabled = Boolean(clientId && process.env.ELY_OAUTH_CLIENT_SECRET && redirectUri)
   if (!enabled) {
     if (String(req.query.redirect || '') === '1') {
-      return res.redirect(`${FRONTEND_URL.replace(/\/$/, '')}/?auth=ely_not_configured`)
+      return redirectToFrontend(res, { auth: 'error', reason: 'oauth_not_configured' })
     }
-    return res.json({ enabled: false, error: 'ely oauth is not configured' })
+    return res.status(501).json({ enabled: false, error: 'ely oauth is not configured' })
   }
 
   const state = crypto.randomBytes(16).toString('hex')
@@ -137,11 +149,18 @@ app.get('/api/auth/ely/callback', async (req, res) => {
   const clientSecret = process.env.ELY_OAUTH_CLIENT_SECRET
   const redirectUri = process.env.ELY_OAUTH_REDIRECT_URI
 
-  if (!code) return res.redirect(`${FRONTEND_URL.replace(/\/$/, '')}/?auth=error&reason=missing_code`)
-  if (!(clientId && clientSecret && redirectUri)) return res.redirect(`${FRONTEND_URL.replace(/\/$/, '')}/?auth=error&reason=oauth_not_configured`)
+  if (!code) {
+    console.warn('[oauth] callback missing code')
+    return redirectToFrontend(res, { auth: 'error', reason: 'missing_code' })
+  }
+  if (!(clientId && clientSecret && redirectUri)) {
+    console.warn('[oauth] callback but oauth not configured')
+    return redirectToFrontend(res, { auth: 'error', reason: 'oauth_not_configured' })
+  }
   const cookies = readCookies(req)
   if (!state || state !== cookies[OAUTH_STATE_COOKIE]) {
-    return res.redirect(`${FRONTEND_URL.replace(/\/$/, '')}/?auth=error&reason=invalid_state`)
+    console.warn('[oauth] invalid state cookie')
+    return redirectToFrontend(res, { auth: 'error', reason: 'invalid_state' })
   }
 
   try {
@@ -160,8 +179,8 @@ app.get('/api/auth/ely/callback', async (req, res) => {
 
     if (!tokenRes.ok) {
       const txt = await tokenRes.text()
-      console.error('oauth token exchange failed', txt)
-      return res.redirect(`${FRONTEND_URL.replace(/\/$/, '')}/?auth=error&reason=token_exchange`)
+      console.error('[oauth] token exchange failed', tokenRes.status, txt.slice(0, 200))
+      return redirectToFrontend(res, { auth: 'error', reason: 'token_exchange' })
     }
 
     const token = await tokenRes.json()
@@ -172,22 +191,25 @@ app.get('/api/auth/ely/callback', async (req, res) => {
 
     if (!userRes.ok) {
       const txt = await userRes.text()
-      console.error('oauth userinfo failed', txt)
-      return res.redirect(`${FRONTEND_URL.replace(/\/$/, '')}/?auth=error&reason=userinfo`)
+      console.error('[oauth] userinfo failed', userRes.status, txt.slice(0, 200))
+      return redirectToFrontend(res, { auth: 'error', reason: 'userinfo' })
     }
 
     const profile = await userRes.json()
     const nick = String(profile?.username || profile?.name || '').trim().slice(0, 24)
-    if (!nick) return res.redirect(`${FRONTEND_URL.replace(/\/$/, '')}/?auth=error&reason=missing_username`)
+    if (!nick) {
+      console.error('[oauth] userinfo missing username')
+      return redirectToFrontend(res, { auth: 'error', reason: 'missing_username' })
+    }
 
     const payload = { nick, iat: Date.now() }
     const session = makeSessionToken(payload)
     clearCookie(res, OAUTH_STATE_COOKIE)
     setCookie(res, SESSION_COOKIE, session, { maxAge: 60 * 60 * 24 * 7 })
-    return res.redirect(`${FRONTEND_URL.replace(/\/$/, '')}/?auth=ok`)
+    return redirectToFrontend(res, { auth: 'ok' })
   } catch (e) {
-    console.error('oauth callback failed', e?.message)
-    return res.redirect(`${FRONTEND_URL.replace(/\/$/, '')}/?auth=error&reason=callback_failed`)
+    console.error('[oauth] callback exception', e?.message || e)
+    return redirectToFrontend(res, { auth: 'error', reason: 'callback_failed' })
   }
 })
 
@@ -293,8 +315,35 @@ async function fromMcstatus(host, port) {
   return r.json()
 }
 
+function mapPlayerEntry(p) {
+  if (p == null) return null
+  if (typeof p === 'string') {
+    const t = p.trim()
+    return t ? t.slice(0, 32) : null
+  }
+  if (typeof p !== 'object') return null
+  const name = p.name ?? p.username ?? p.displayName ?? p.profile?.name
+  if (typeof name === 'string' && name.trim()) return name.trim().slice(0, 32)
+  const id = p.id ?? p.uuid
+  if (typeof id === 'string') {
+    const hex = id.replace(/-/g, '')
+    if (/^[0-9a-f]{8,32}$/i.test(hex)) {
+      return `…${hex.slice(-8)}`
+    }
+  }
+  return null
+}
+
+function buildPlayers(rawPlayers) {
+  const rawList = rawPlayers?.list ?? rawPlayers?.sample ?? []
+  const list = Array.isArray(rawList) ? rawList.map(mapPlayerEntry).filter(Boolean) : []
+  const online = Number(rawPlayers?.online || 0)
+  const max = Number(rawPlayers?.max || 0)
+  const listHidden = online > 0 && list.length === 0
+  return { online, max, list, listHidden }
+}
+
 function normalizeIsmc(raw, host, port) {
-  const players = extractPlayerNames(raw?.players?.list || raw?.players?.sample || [])
   return {
     source: 'ismcserver',
     online: Boolean(raw?.online),
@@ -306,16 +355,11 @@ function normalizeIsmc(raw, host, port) {
       raw: raw?.motd?.raw || '',
       clean: raw?.motd?.clean || raw?.motd?.raw || ''
     },
-    players: {
-      online: Number(raw?.players?.online || 0),
-      max: Number(raw?.players?.max || 0),
-      list: players
-    }
+    players: buildPlayers(raw?.players)
   }
 }
 
 function normalizeMcstatus(raw, host, port) {
-  const players = extractPlayerNames(raw?.players?.list || raw?.players?.sample || [])
   return {
     source: 'mcstatus',
     online: Boolean(raw?.online),
@@ -327,46 +371,8 @@ function normalizeMcstatus(raw, host, port) {
       raw: raw?.motd?.raw || raw?.motd?.clean || '',
       clean: raw?.motd?.clean || raw?.motd?.raw || ''
     },
-    players: {
-      online: Number(raw?.players?.online || 0),
-      max: Number(raw?.players?.max || 0),
-      list: players
-    }
+    players: buildPlayers(raw?.players)
   }
-}
-
-function extractPlayerNames(input) {
-  const rows = Array.isArray(input) ? input : []
-  const out = new Set()
-
-  for (const p of rows) {
-    if (typeof p === 'string') {
-      const v = p.trim()
-      if (v) out.add(v)
-      continue
-    }
-    if (!p || typeof p !== 'object') continue
-
-    const cands = [
-      p.name,
-      p.username,
-      p.nick,
-      p.nickname,
-      p.player,
-      p.name_clean,
-      p.displayName,
-      p.display_name
-    ]
-
-    for (const c of cands) {
-      if (typeof c === 'string' && c.trim()) {
-        out.add(c.trim())
-        break
-      }
-    }
-  }
-
-  return [...out]
 }
 
 async function bootstrap() {

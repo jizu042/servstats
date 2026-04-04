@@ -1,86 +1,100 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { SkinViewer, WalkingAnimation } from 'skinview3d'
 import { formatUptime } from '../lib/format'
 
+function headUrl(nick) {
+  return `https://craft.ely.by/api/player/head/${encodeURIComponent(nick)}`
+}
+
+function elySkinUrl(nick) {
+  return `https://craft.ely.by/api/player/skin/${encodeURIComponent(nick)}`
+}
+
+function mcHeadsSkinUrl(nick) {
+  return `https://mc-heads.net/skin/${encodeURIComponent(nick)}`
+}
+
 export default function PlayerModal({ nick, sessionSince, history, onClose, labels }) {
-  const l = labels || {
-    currentSession: 'Current session',
-    sessionHistory: 'Session history',
-    noLocalHistory: 'No local history yet',
-    now: 'now',
-    discordReserved: 'Discord status: reserved'
-  }
+  const l = labels || {}
   const canvasRef = useRef(null)
+  const viewerRef = useRef(null)
+  const [skinFailed, setSkinFailed] = useState(false)
 
   useEffect(() => {
-    if (!nick || !canvasRef.current) return
+    if (!nick || !canvasRef.current) return undefined
 
-    let disposed = false
-    let viewer = null
-    let onResize = null
+    const canvas = canvasRef.current
+    const w = Math.min(440, canvas.parentElement?.clientWidth || 440)
+    const h = 320
 
-    const setup = async () => {
-      const skinview3d = await import('skinview3d')
-      if (disposed || !canvasRef.current) return
+    const viewer = new SkinViewer({
+      canvas,
+      width: w,
+      height: h,
+      background: 0x121826
+    })
+    viewer.animation = new WalkingAnimation()
+    viewerRef.current = viewer
+    setSkinFailed(false)
 
-      const width = canvasRef.current.clientWidth || 560
-      const height = canvasRef.current.clientHeight || 320
+    const loadFallbackChain = () =>
+      viewer
+        .loadSkin(elySkinUrl(nick))
+        .catch(() => viewer.loadSkin(mcHeadsSkinUrl(nick)))
+        .catch(() => {
+          setSkinFailed(true)
+          return viewer.loadSkin(mcHeadsSkinUrl('Steve'))
+        })
+        .catch(() => {})
 
-      viewer = new skinview3d.SkinViewer({
-        canvas: canvasRef.current,
-        width,
-        height,
-        skin: `https://craft.ely.by/skins/${encodeURIComponent(nick)}.png`
-      })
+    loadFallbackChain()
 
-      viewer.zoom = 0.85
-      viewer.fov = 55
-      viewer.controls.enableZoom = false
-      viewer.controls.enablePan = false
-
-      const walk = new skinview3d.WalkingAnimation()
-      walk.speed = 1.3
-      viewer.animation = walk
-
-      onResize = () => {
-        if (!canvasRef.current || !viewer) return
-        viewer.setSize(canvasRef.current.clientWidth, canvasRef.current.clientHeight)
-      }
-
-      window.addEventListener('resize', onResize)
-    }
-
-    setup().catch(() => {})
+    const ro = new ResizeObserver(() => {
+      const nw = Math.min(440, canvas.parentElement?.clientWidth || 440)
+      viewer.width = nw
+      viewer.height = h
+    })
+    if (canvas.parentElement) ro.observe(canvas.parentElement)
 
     return () => {
-      disposed = true
-      if (onResize) window.removeEventListener('resize', onResize)
-      if (viewer) viewer.dispose()
+      ro.disconnect()
+      viewer.dispose()
+      viewerRef.current = null
     }
   }, [nick])
 
   if (!nick) return null
+
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <button className="close" onClick={onClose}>✕</button>
-        <h3 className="player-title">
-          <img src={`https://craft.ely.by/api/player/head/${encodeURIComponent(nick)}`} alt={nick} />
-          <span>{nick}</span>
-        </h3>
-        <div className="skin-render-wrap">
-          <canvas ref={canvasRef} className="skin-render" />
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <div className="modal" role="dialog" aria-labelledby="player-modal-title" onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="close" onClick={onClose}>
+          ✕
+        </button>
+        <div className="modal-player-title" id="player-modal-title">
+          <img className="modal-head" src={headUrl(nick)} alt="" width={40} height={40} />
+          <h3>{nick}</h3>
         </div>
-        <p><b>{l.currentSession}:</b> {formatUptime(sessionSince)}</p>
+        <div className="skin-canvas-wrap">
+          <canvas ref={canvasRef} className="skin-canvas" />
+        </div>
+        {skinFailed && <p className="muted small skin-fallback-note">{l.skinLoadError}</p>}
+        <p>
+          <b>{l.currentSession}:</b> {formatUptime(sessionSince)}
+        </p>
         <h4>{l.sessionHistory}</h4>
-        <ul>
-          {(history || []).slice(-10).reverse().map((it, idx) => (
-            <li key={`${it.start}-${idx}`} className="mono">{new Date(it.start).toLocaleString()} → {it.end ? new Date(it.end).toLocaleString() : l.now}</li>
-          ))}
+        <ul className="session-list">
+          {(history || [])
+            .slice(-10)
+            .reverse()
+            .map((it, idx) => (
+              <li key={`${it.start}-${idx}`} className="mono">
+                {new Date(it.start).toLocaleString()} → {it.end ? new Date(it.end).toLocaleString() : l.now}
+              </li>
+            ))}
           {(!history || history.length === 0) && <li className="muted">{l.noLocalHistory}</li>}
         </ul>
-        <div className="placeholder">
-          {l.discordReserved}
-        </div>
+        <div className="placeholder">{l.discordReserved}</div>
       </div>
     </div>
   )

@@ -1,7 +1,19 @@
 export const K = {
   settings: 'msm_settings',
-  statsByServer: 'msm_stats_by_server_v2',
-  sessionsByServer: 'msm_sessions_by_server_v2'
+  stats: 'msm_stats_v1',
+  sessions: 'msm_player_sessions_v1'
+}
+
+export function defaultStats() {
+  return { history24h: [], peak: 0, offlines: 0, avgUptime: '—', uptimes: [] }
+}
+
+export function statsKey(hostPort) {
+  return `${K.stats}::${hostPort}`
+}
+
+export function sessionsKey(hostPort) {
+  return `${K.sessions}::${hostPort}`
 }
 
 export function readJson(key, fallback) {
@@ -19,15 +31,4 @@ export function writeJson(key, value) {
 
 export function getOnlineSinceKey(hostPort) {
   return `server_online_since_${hostPort}`
-}
-
-export function readScopedJson(baseKey, scope, fallback) {
-  const all = readJson(baseKey, {})
-  return all?.[scope] ?? fallback
-}
-
-export function writeScopedJson(baseKey, scope, value) {
-  const all = readJson(baseKey, {})
-  all[scope] = value
-  writeJson(baseKey, all)
 }

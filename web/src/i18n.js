@@ -1,9 +1,22 @@
 export const I18N = {
   ru: {
     appTitle: 'Minecraft Server Monitor',
-    settingsButton: 'Настройки',
-    tabs: { dashboard: 'Главная', stats: 'Статистика', chat: 'Чат', map: 'Карта', settings: 'Настройки' },
+    tabs: { dashboard: 'Главная', stats: 'Статистика', chat: 'Чат', map: 'Карта' },
     mapReserved: 'Зарезервировано для интеграции BlueMap/Dynmap.',
+    auth: {
+      signedInSuccess: 'Вход выполнен.',
+      signedOut: 'Вы вышли из аккаунта.',
+      errors: {
+        missing_code: 'OAuth: код авторизации не получен.',
+        oauth_not_configured: 'Вход через ely.by не настроен на сервере.',
+        invalid_state: 'Сессия OAuth устарела. Попробуйте войти снова.',
+        token_exchange: 'Не удалось обменять код на токен (ely.by).',
+        userinfo: 'Не удалось получить профиль с ely.by.',
+        missing_username: 'В ответе ely.by нет имени пользователя.',
+        callback_failed: 'Ошибка обработки OAuth.',
+        unknown: 'Ошибка входа.'
+      }
+    },
     server: {
       online: 'Online',
       offline: 'Offline',
@@ -13,7 +26,10 @@ export const I18N = {
       uptime: 'Uptime',
       playersOnline: 'Игроки онлайн',
       noPlayers: 'Сейчас игроков нет',
-      hiddenList: 'Сервер скрывает список игроков'
+      listHidden: 'Сервер не публикует список игроков (онлайн скрыт).',
+      recentSeenTitle: 'Недавно видели',
+      recentSeenBadge: 'Локально',
+      recentSeenHint: 'По данным этого браузера для выбранного сервера.'
     },
     settings: {
       title: 'Настройки',
@@ -23,7 +39,8 @@ export const I18N = {
       notifyOnline: 'Уведомления при онлайне',
       darkTheme: 'Тёмная тема',
       language: 'Язык',
-      requestNotifications: 'Запросить уведомления'
+      requestNotifications: 'Запросить уведомления',
+      openSettings: 'Открыть настройки'
     },
     stats: {
       title: 'Статистика',
@@ -31,11 +48,12 @@ export const I18N = {
       peak: 'Пик онлайна',
       offlines: 'Краши/оффлайны',
       avgUptime: 'Средний uptime',
-      noData: 'Недостаточно данных по этому серверу. Подождите несколько циклов опроса.'
+      loading: 'Загрузка…',
+      empty: 'Нет выборки за этот период для этого сервера (нужна БД и сборщик).',
+      emptyShort: 'Нет данных для графика.'
     },
     chat: {
       title: 'Чат',
-      subtitle: 'Глобальный realtime-чат',
       signedInAs: 'Вошли как',
       logout: 'Выйти',
       oauthNotConfigured: 'OAuth не настроен. Демо-режим.',
@@ -43,25 +61,43 @@ export const I18N = {
       loginEly: 'Войти через ely.by',
       messagePlaceholder: 'Сообщение...',
       send: 'Отправить',
-      empty: 'Пока нет сообщений',
-      authNotReady: 'Авторизация через ely.by пока не настроена на сервере',
-      loadError: 'Не удалось загрузить историю чата',
-      sendError: 'Не удалось отправить сообщение',
-      reconnecting: 'Переподключение realtime…'
+      systemWelcome: 'Локальный чат подключён.',
+      loadingHistory: 'Загрузка истории…',
+      loadHistoryError: 'Не удалось загрузить историю.',
+      retry: 'Повторить',
+      streamLive: 'Соединение активно',
+      streamReconnecting: 'Переподключение…',
+      streamError: 'Поток сообщений прерван',
+      sendFailed: 'Не удалось отправить сообщение.',
+      emptyChat: 'Пока нет сообщений.'
     },
     player: {
       currentSession: 'Текущая сессия',
       sessionHistory: 'История сессий',
       noLocalHistory: 'Локальной истории пока нет',
       now: 'сейчас',
-      discordReserved: 'Discord статус: зарезервировано'
+      discordReserved: 'Discord статус: зарезервировано',
+      skinLoadError: 'Не удалось загрузить скин (показан запасной вариант).'
     }
   },
   en: {
     appTitle: 'Minecraft Server Monitor',
-    settingsButton: 'Settings',
-    tabs: { dashboard: 'Dashboard', stats: 'Stats', chat: 'Chat', map: 'Map', settings: 'Settings' },
+    tabs: { dashboard: 'Dashboard', stats: 'Stats', chat: 'Chat', map: 'Map' },
     mapReserved: 'Reserved for BlueMap/Dynmap integration.',
+    auth: {
+      signedInSuccess: 'Signed in successfully.',
+      signedOut: 'You have been signed out.',
+      errors: {
+        missing_code: 'OAuth: authorization code missing.',
+        oauth_not_configured: 'ely.by login is not configured on the server.',
+        invalid_state: 'OAuth session expired. Try signing in again.',
+        token_exchange: 'Could not exchange code for token (ely.by).',
+        userinfo: 'Could not load profile from ely.by.',
+        missing_username: 'ely.by response had no username.',
+        callback_failed: 'OAuth callback failed.',
+        unknown: 'Sign-in error.'
+      }
+    },
     server: {
       online: 'Online',
       offline: 'Offline',
@@ -71,7 +107,10 @@ export const I18N = {
       uptime: 'Uptime',
       playersOnline: 'Players online',
       noPlayers: 'No players online',
-      hiddenList: 'Server hides the online player list'
+      listHidden: 'This server does not publish the player list (online hidden).',
+      recentSeenTitle: 'Recently seen',
+      recentSeenBadge: 'Local',
+      recentSeenHint: 'From this browser for the selected server.'
     },
     settings: {
       title: 'Settings',
@@ -81,7 +120,8 @@ export const I18N = {
       notifyOnline: 'Online notifications',
       darkTheme: 'Dark theme',
       language: 'Language',
-      requestNotifications: 'Request notifications'
+      requestNotifications: 'Request notifications',
+      openSettings: 'Open settings'
     },
     stats: {
       title: 'Statistics',
@@ -89,11 +129,12 @@ export const I18N = {
       peak: 'Peak online',
       offlines: 'Crashes/offlines',
       avgUptime: 'Avg uptime',
-      noData: 'Not enough data for this server yet. Wait for several polling cycles.'
+      loading: 'Loading…',
+      empty: 'No samples for this period on this server (needs DB + collector).',
+      emptyShort: 'No chart data.'
     },
     chat: {
       title: 'Chat',
-      subtitle: 'Global realtime chat',
       signedInAs: 'Signed in as',
       logout: 'Logout',
       oauthNotConfigured: 'OAuth is not configured. Demo mode enabled.',
@@ -101,18 +142,23 @@ export const I18N = {
       loginEly: 'Login via ely.by',
       messagePlaceholder: 'Message...',
       send: 'Send',
-      empty: 'No messages yet',
-      authNotReady: 'ely.by OAuth is not configured on the backend yet',
-      loadError: 'Failed to load chat history',
-      sendError: 'Failed to send message',
-      reconnecting: 'Reconnecting realtime…'
+      systemWelcome: 'Local chat connected.',
+      loadingHistory: 'Loading history…',
+      loadHistoryError: 'Could not load chat history.',
+      retry: 'Retry',
+      streamLive: 'Stream connected',
+      streamReconnecting: 'Reconnecting…',
+      streamError: 'Message stream interrupted',
+      sendFailed: 'Could not send message.',
+      emptyChat: 'No messages yet.'
     },
     player: {
       currentSession: 'Current session',
       sessionHistory: 'Session history',
       noLocalHistory: 'No local history yet',
       now: 'now',
-      discordReserved: 'Discord status: reserved'
+      discordReserved: 'Discord status: reserved',
+      skinLoadError: 'Could not load skin (showing fallback).'
     }
   }
 }
