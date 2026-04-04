@@ -137,11 +137,11 @@ app.get('/api/auth/ely/callback', async (req, res) => {
   const clientSecret = process.env.ELY_OAUTH_CLIENT_SECRET
   const redirectUri = process.env.ELY_OAUTH_REDIRECT_URI
 
-  if (!code) return res.status(400).json({ error: 'code is required' })
-  if (!(clientId && clientSecret && redirectUri)) return res.status(501).json({ error: 'ely oauth is not configured' })
+  if (!code) return res.redirect(`${FRONTEND_URL.replace(/\/$/, '')}/?auth=error&reason=missing_code`)
+  if (!(clientId && clientSecret && redirectUri)) return res.redirect(`${FRONTEND_URL.replace(/\/$/, '')}/?auth=error&reason=oauth_not_configured`)
   const cookies = readCookies(req)
   if (!state || state !== cookies[OAUTH_STATE_COOKIE]) {
-    return res.status(400).json({ error: 'invalid oauth state' })
+    return res.redirect(`${FRONTEND_URL.replace(/\/$/, '')}/?auth=error&reason=invalid_state`)
   }
 
   try {
@@ -160,7 +160,8 @@ app.get('/api/auth/ely/callback', async (req, res) => {
 
     if (!tokenRes.ok) {
       const txt = await tokenRes.text()
-      return res.status(502).json({ error: 'oauth token exchange failed', details: txt })
+      console.error('oauth token exchange failed', txt)
+      return res.redirect(`${FRONTEND_URL.replace(/\/$/, '')}/?auth=error&reason=token_exchange`)
     }
 
     const token = await tokenRes.json()
@@ -171,12 +172,13 @@ app.get('/api/auth/ely/callback', async (req, res) => {
 
     if (!userRes.ok) {
       const txt = await userRes.text()
-      return res.status(502).json({ error: 'oauth userinfo failed', details: txt })
+      console.error('oauth userinfo failed', txt)
+      return res.redirect(`${FRONTEND_URL.replace(/\/$/, '')}/?auth=error&reason=userinfo`)
     }
 
     const profile = await userRes.json()
     const nick = String(profile?.username || profile?.name || '').trim().slice(0, 24)
-    if (!nick) return res.status(502).json({ error: 'oauth userinfo missing username' })
+    if (!nick) return res.redirect(`${FRONTEND_URL.replace(/\/$/, '')}/?auth=error&reason=missing_username`)
 
     const payload = { nick, iat: Date.now() }
     const session = makeSessionToken(payload)
@@ -184,7 +186,8 @@ app.get('/api/auth/ely/callback', async (req, res) => {
     setCookie(res, SESSION_COOKIE, session, { maxAge: 60 * 60 * 24 * 7 })
     return res.redirect(`${FRONTEND_URL.replace(/\/$/, '')}/?auth=ok`)
   } catch (e) {
-    return res.status(502).json({ error: e?.message || 'oauth callback failed' })
+    console.error('oauth callback failed', e?.message)
+    return res.redirect(`${FRONTEND_URL.replace(/\/$/, '')}/?auth=error&reason=callback_failed`)
   }
 })
 
@@ -291,6 +294,7 @@ async function fromMcstatus(host, port) {
 }
 
 function normalizeIsmc(raw, host, port) {
+  const players = extractPlayerNames(raw?.players?.list || raw?.players?.sample || [])
   return {
     source: 'ismcserver',
     online: Boolean(raw?.online),
@@ -305,12 +309,13 @@ function normalizeIsmc(raw, host, port) {
     players: {
       online: Number(raw?.players?.online || 0),
       max: Number(raw?.players?.max || 0),
-      list: (raw?.players?.list || []).map((p) => (typeof p === 'string' ? p : p?.name)).filter(Boolean)
+      list: players
     }
   }
 }
 
 function normalizeMcstatus(raw, host, port) {
+  const players = extractPlayerNames(raw?.players?.list || raw?.players?.sample || [])
   return {
     source: 'mcstatus',
     online: Boolean(raw?.online),
@@ -325,9 +330,43 @@ function normalizeMcstatus(raw, host, port) {
     players: {
       online: Number(raw?.players?.online || 0),
       max: Number(raw?.players?.max || 0),
-      list: (raw?.players?.list || raw?.players?.sample || []).map((p) => (typeof p === 'string' ? p : p?.name)).filter(Boolean)
+      list: players
     }
   }
+}
+
+function extractPlayerNames(input) {
+  const rows = Array.isArray(input) ? input : []
+  const out = new Set()
+
+  for (const p of rows) {
+    if (typeof p === 'string') {
+      const v = p.trim()
+      if (v) out.add(v)
+      continue
+    }
+    if (!p || typeof p !== 'object') continue
+
+    const cands = [
+      p.name,
+      p.username,
+      p.nick,
+      p.nickname,
+      p.player,
+      p.name_clean,
+      p.displayName,
+      p.display_name
+    ]
+
+    for (const c of cands) {
+      if (typeof c === 'string' && c.trim()) {
+        out.add(c.trim())
+        break
+      }
+    }
+  }
+
+  return [...out]
 }
 
 async function bootstrap() {

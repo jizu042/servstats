@@ -186,6 +186,31 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    const u = new URL(window.location.href)
+    const auth = u.searchParams.get('auth')
+    if (!auth) return
+
+    if (auth === 'ok') {
+      fetchMe(API_BASE)
+        .then((meData) => {
+          if (meData?.authenticated) {
+            setMe({ nick: meData.nick, avatar: meData.avatar })
+            setAuthError('')
+          }
+        })
+        .catch(() => {})
+    }
+
+    if (auth === 'error') {
+      setAuthError(t.chat.authNotReady)
+    }
+
+    u.searchParams.delete('auth')
+    u.searchParams.delete('reason')
+    window.history.replaceState({}, '', u.toString())
+  }, [t.chat.authNotReady])
+
+  useEffect(() => {
     if (tab !== 'stats') return
     fetchStatsHistory(API_BASE, hp.host, hp.port, rangeHours)
       .then((res) => {
