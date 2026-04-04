@@ -278,15 +278,13 @@ export default function App() {
           const hh = String(Math.floor(avg / 3600)).padStart(2, '0')
           const mm = String(Math.floor((avg % 3600) / 60)).padStart(2, '0')
           const ss = String(avg % 60).padStart(2, '0')
-          const updated = {
+          return {
             ...old,
             history24h: res.points,
             peak:       Math.max(Number(res.peak || 0), old.peak || 0),
             offlines:   Number(res.offlines ?? 0),
             avgUptime:  avg ? `${hh}:${mm}:${ss}` : old.avgUptime
           }
-          writeJson(sk, updated)
-          return updated
         })
       })
       .catch((err) => { if (err?.name !== 'AbortError') console.warn('[stats]', err) })
@@ -388,22 +386,7 @@ export default function App() {
           </div>
 
           <div className="topbar-right">
-            {server?.online
-              ? <span className="badge badge-green"><span className="badge-dot" />Online</span>
-              : <span className="badge"><span className="badge-dot" style={{ background: '#f87171' }} />Offline</span>
-            }
-            {me?.nick
-              ? <span className="badge badge-purple">@{me.nick}</span>
-              : null
-            }
-            <button
-              type="button"
-              className="icon-btn"
-              title={t.settings.openSettings}
-              onClick={() => setSettingsOpen(true)}
-            >
-              ⚙️
-            </button>
+            {me?.nick && <span className="badge badge-purple">@{me.nick}</span>}
           </div>
         </header>
 
@@ -487,17 +470,17 @@ export default function App() {
                       <div className="detail-source-icon">🌍</div>
                       <div>
                         <div className="detail-source-name">Геолокация</div>
-                        <div className="detail-source-url">Данные от ISMC API</div>
+                        <div className="detail-source-url">Данные от текущего сервера</div>
                       </div>
                     </div>
                     <div className="detail-rows">
                       <div className="detail-row">
                         <span className="detail-row-label">Страна</span>
                         <span className="detail-row-val">
-                          {serverDetails?.ismcserver?.location?.country || 'Неизвестно'}
-                          {serverDetails?.ismcserver?.location?.country && (
+                          {server?.location?.country || 'Неизвестно'}
+                          {server?.location?.country && (
                             <img
-                              src={`https://flagcdn.com/24x18/${serverDetails.ismcserver.location.country.toLowerCase()}.png`}
+                              src={`https://flagcdn.com/24x18/${server.location.country.toLowerCase()}.png`}
                               alt="Flag"
                               style={{ marginLeft: '8px', verticalAlign: 'middle', borderRadius: '2px' }}
                             />
@@ -506,11 +489,11 @@ export default function App() {
                       </div>
                       <div className="detail-row">
                         <span className="detail-row-label">Город</span>
-                        <span className="detail-row-val">{serverDetails?.ismcserver?.location?.city || 'Неизвестно'}</span>
+                        <span className="detail-row-val">{server?.location?.city || 'Неизвестно'}</span>
                       </div>
                       <div className="detail-row">
                         <span className="detail-row-label">Регион</span>
-                        <span className="detail-row-val">{serverDetails?.ismcserver?.location?.region || 'Неизвестно'}</span>
+                        <span className="detail-row-val">{server?.location?.region || 'Неизвестно'}</span>
                       </div>
                     </div>
                   </div>
@@ -519,22 +502,18 @@ export default function App() {
                     <div className="detail-source-header">
                       <div className="detail-source-icon">🛠️</div>
                       <div>
-                        <div className="detail-source-name">Технические Характеристики</div>
-                        <div className="detail-source-url">Версия и софт</div>
+                        <div className="detail-source-name">Версия</div>
+                        <div className="detail-source-url">Софт и ядро</div>
                       </div>
                     </div>
                     <div className="detail-rows">
                       <div className="detail-row">
-                        <span className="detail-row-label">Инстанс</span>
-                        <span className="detail-row-val">{serverDetails?.direct?.host || serverDetails?.mcstatus?.host}</span>
-                      </div>
-                      <div className="detail-row">
-                        <span className="detail-row-label">Софт</span>
-                        <span className="detail-row-val">{serverDetails?.ismcserver?.software || serverDetails?.mcsrvstat?.software || 'Minecraft Server'}</span>
+                        <span className="detail-row-label">Протокол</span>
+                        <span className="detail-row-val">{server?.version?.protocol || '—'}</span>
                       </div>
                       <div className="detail-row">
                         <span className="detail-row-label">Ядро</span>
-                        <span className="detail-row-val">{serverDetails?.ismcserver?.version || serverDetails?.direct?.version || 'Неизвестно'}</span>
+                        <span className="detail-row-val group-hover-color">{server?.version?.name || 'Minecraft'}</span>
                       </div>
                     </div>
                   </div>

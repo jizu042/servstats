@@ -52,29 +52,31 @@ export default function ChatPanel({
         <span className={`stream-pill ${streamStatus}`}>{streamLabel}</span>
       </div>
 
-      {/* Profile row */}
       {profile?.nick ? (
         <div className="chat-profile-row">
           <div className="chat-profile-ident">
-            {avatar && <img src={avatar} alt="" className="chat-profile-avatar" />}
+            <img src={avatar || headUrl('Steve')} alt="" className="chat-profile-avatar" />
             <span style={{ fontSize: 13.5 }}>
-              {l.signedInAs} <b style={{ color: 'var(--purple)' }}>{profile.nick}</b>
+              {l.signedInAs || 'Вы вошли как'} <b style={{ color: 'var(--purple)' }}>{profile.nick}</b>
             </span>
           </div>
           {onLogout && (
             <button type="button" className="btn-danger" style={{ padding: '5px 11px', fontSize: 12 }} onClick={onLogout}>
-              {l.logout}
+              {l.logout || 'Выйти'}
             </button>
           )}
         </div>
       ) : (
         <div className="chat-guest-block">
-          <span className="muted" style={{ fontSize: 13 }}>
-            {authEnabled ? l.signInPrompt : l.oauthNotConfigured}
-          </span>
+          <div className="chat-profile-ident">
+            <img src={headUrl('Steve')} alt="" className="chat-profile-avatar" style={{ filter: 'grayscale(1)' }} />
+            <span className="muted" style={{ fontSize: 13.5 }}>
+              {authEnabled ? (l.signInPrompt || 'Авторизуйтесь через Ely.by для отправки сообщений') : (l.oauthNotConfigured || 'Вход через Ely.by не настроен')}
+            </span>
+          </div>
           {onLogin && authEnabled && (
             <button type="button" className="btn-primary" style={{ padding: '6px 14px', fontSize: 12.5 }} onClick={onLogin}>
-              {l.loginEly}
+              {l.loginEly || 'Войти через Ely.by'}
             </button>
           )}
         </div>

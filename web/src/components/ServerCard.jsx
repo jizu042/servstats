@@ -78,7 +78,7 @@ export default function ServerCard({ server, onlineSince, sessions, onPlayerClic
             {ping !== null ? `${ping} ms` : '—'}
           </div>
           {pingSource && (
-            <div className="ping-source">
+            <div className="ping-source" title={pingSource === 'direct' ? 'Прямое соединение к серверу' : `Данные получены через ${pingSource}`}>
               {pingSource === 'direct' ? '🔌 direct' : `🌐 ${pingSource}`}
             </div>
           )}
