@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(ls -la web/src/*.css)",
+      "Bash(ls -la */src/*.css)"
+    ]
+  }
+}

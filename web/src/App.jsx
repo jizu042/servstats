@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import ServerCard from './components/ServerCard'
 import PlayerModal from './components/PlayerModal'
 import StatsPanel from './components/StatsPanel'
 import ChatPanel from './components/ChatPanel'
 import SettingsPanel from './components/SettingsPanel'
 import DetailsPanel from './components/DetailsPanel'
+import MapPanel from './components/MapPanel'
+import { useServerContext } from './contexts/ServerContext'
 import {
   fetchChatMessages,
   fetchElyAuthStatus,
   fetchMe,
-  fetchServerStatus,
   fetchStatsHistory,
   fetchPlayersStats,
   getChatStreamUrl,
@@ -17,27 +18,8 @@ import {
   logout,
   postChatMessage
 } from './lib/api'
-import { parseHostPort } from './lib/format'
-import {
-  K,
-  defaultStats,
-  getOnlineSinceKey,
-  readJson,
-  sessionsKey,
-  statsKey,
-  writeJson
-} from './lib/storage'
-import { notifyServerOnline, requestNotificationPermission } from './lib/notifications'
+import { requestNotificationPermission } from './lib/notifications'
 import { getT } from './i18n'
-
-const DEFAULTS = {
-  hostPort:      import.meta.env.VITE_DEFAULT_SERVER || 'play.hypixel.net:25565',
-  pollSec:       Number(import.meta.env.VITE_DEFAULT_POLL_INTERVAL_SEC || 10),
-  notifyOnOnline: false,
-  theme:         import.meta.env.VITE_DEFAULT_THEME || 'dark',
-  apiSource:     import.meta.env.VITE_API_SOURCE_DEFAULT || 'auto',
-  lang:          import.meta.env.VITE_DEFAULT_LANG || 'ru'
-}
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8787'
 
@@ -59,75 +41,61 @@ function lastOpenSessionStart(sessions, nick) {
 }
 
 export default function App() {
-  const [tab, setTab]               = useState('dashboard')
+  // Get server data from context
+  const {
+    server,
+    onlineSince,
+    sessions,
+    stats,
+    setStats,
+    settings,
+    updateSettings,
+    host,
+    port,
+    hostPort
+  } = useServerContext()
+
+  // Local UI state
+  const [tab, setTab] = useState('dashboard')
   const [sidebarExpanded, setSidebarExpanded] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [settings, setSettings]     = useState(() => ({ ...DEFAULTS, ...readJson(K.settings, {}) }))
-  const [server, setServer]         = useState(null)
-  const prevOnlineRef               = useRef(false)
-  const pollPrimedRef               = useRef(false)
-  const [onlineSince, setOnlineSince] = useState(null)
   const [activeNick, setActiveNick] = useState('')
-  const [sessions, setSessions]     = useState({})
-  const [stats, setStats]           = useState(() => defaultStats())
-  const [chat, setChat]             = useState([])
+  const [chat, setChat] = useState([])
   const [rangeHours, setRangeHours] = useState(24)
   const [statsLoading, setStatsLoading] = useState(false)
-  const [auth, setAuth]             = useState({ enabled: false })
-  const [me, setMe]                 = useState(null)
+  const [auth, setAuth] = useState({ enabled: false })
+  const [me, setMe] = useState(null)
   const [authBanner, setAuthBanner] = useState(null)
-  const [chatLoadState, setChatLoadState]   = useState('loading')
+  const [chatLoadState, setChatLoadState] = useState('loading')
   const [chatStreamState, setChatStreamState] = useState({ status: 'connecting' })
-  const [sendError, setSendError]   = useState('')
-  const [ipHidden, setIpHidden]     = useState(false)
+  const [sendError, setSendError] = useState('')
+  const [ipHidden, setIpHidden] = useState(false)
   const [playersList, setPlayersList] = useState([])
 
-  const hp       = useMemo(() => parseHostPort(settings.hostPort), [settings.hostPort])
-  const hostPort = `${hp.host}:${hp.port}`
-  const sk       = statsKey(hostPort)
-  const sessK    = sessionsKey(hostPort)
-  const t        = useMemo(() => getT(settings.lang), [settings.lang])
-
-  // Apply theme
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', settings.theme)
-    writeJson(K.settings, settings)
-  }, [settings])
-
-  // Reset on server change
-  useEffect(() => {
-    pollPrimedRef.current = false
-    prevOnlineRef.current = false
-    const since = localStorage.getItem(getOnlineSinceKey(hostPort))
-    setOnlineSince(since ? Number(since) : null)
-    setStats(readJson(sk, defaultStats()))
-    setSessions(readJson(sessK, {}))
-    setServer(null)
-    setActiveNick('')
-  }, [hostPort, sk, sessK])
+  const t = useMemo(() => getT(settings.lang), [settings.lang])
 
   // Handle OAuth redirect params
   useEffect(() => {
-    const params    = new URLSearchParams(window.location.search)
+    const params = new URLSearchParams(window.location.search)
     const authParam = params.get('auth')
-    const token     = params.get('token')
+    const token = params.get('token')
 
     if (token) {
       localStorage.setItem('auth_token', token)
     }
 
     if (!authParam) return
-    const merged = { ...DEFAULTS, ...readJson(K.settings, {}) }
-    const tr     = getT(merged.lang)
     if (authParam === 'ok') {
-      setAuthBanner({ type: 'success', text: tr.auth.signedInSuccess })
-      fetchMe(API_BASE).then((u) => { if (u?.authenticated) setMe({ nick: u.nick, avatar: u.avatar }) }).catch(() => {})
+      setAuthBanner({ type: 'success', text: t.auth.signedInSuccess })
+      fetchMe(API_BASE).then((u) => {
+        if (u?.authenticated) setMe({ nick: u.nick, avatar: u.avatar })
+      }).catch(() => {})
     } else if (authParam === 'error') {
       const reason = params.get('reason') || 'unknown'
-      setAuthBanner({ type: 'error', text: tr.auth.errors[reason] || tr.auth.errors.unknown })
+      setAuthBanner({ type: 'error', text: t.auth.errors[reason] || t.auth.errors.unknown })
     }
     window.history.replaceState({}, '', window.location.pathname)
-  }, [])
+  }, [t])
 
   // Escape closes settings
   useEffect(() => {
@@ -137,62 +105,14 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [settingsOpen])
 
-  // Polling server status
-  useEffect(() => {
-    let stop = false
-    const tick = async () => {
-      try {
-        const data     = await fetchServerStatus(API_BASE, hp.host, hp.port, settings.apiSource)
-        if (stop) return
-        const isOnline = Boolean(data.online)
-        setServer(data)
-
-        if (typeof data.onlineSince === 'number') {
-          setOnlineSince(data.onlineSince)
-        } else {
-          setOnlineSince(null)
-        }
-
-        if (isOnline) {
-          // Keep a minimal local buffer for smooth rendering before next DB sync
-          setStats((old) => {
-            const point      = { t: Date.now(), v: Number(data?.players?.online || 0) }
-            const history24h = [...(old.history24h || []), point].slice(-24 * 60 * 6)
-            const peak       = Math.max(old.peak || 0, point.v)
-            return { ...old, history24h, peak }
-          })
-          const names = data?.players?.list || []
-          setSessions((old) => {
-            const next = { ...old }
-            const now  = Date.now()
-            for (const nick of names) {
-              if (!next[nick] || !next[nick].length || next[nick][next[nick].length - 1].end) {
-                next[nick] = [...(next[nick] || []), { start: now, end: null }]
-              }
-            }
-            for (const nick of Object.keys(next)) {
-              if (!names.includes(nick) && next[nick].length && !next[nick][next[nick].length - 1].end) {
-                next[nick][next[nick].length - 1].end = now
-              }
-            }
-            return next
-          })
-        }
-      } catch {
-        if (!stop) setServer({ online: false, players: { online: 0, max: 0, list: [], listHidden: false }, ping: null, motd: { clean: 'No data' } })
-      }
-    }
-    tick()
-    const id = setInterval(tick, Math.max(5, settings.pollSec) * 1000)
-    return () => { stop = true; clearInterval(id) }
-  }, [hp.host, hp.port, settings.pollSec, settings.apiSource])
-
   // Chat setup
   const loadChatHistory = useCallback(() => {
     setChatLoadState('loading')
     fetchChatMessages(API_BASE)
       .then((rows) => {
-        setChat(Array.isArray(rows) && rows.length ? rows : [{ nick: 'System', text: t.chat.systemWelcome, ts: Date.now() }])
+        setChat(Array.isArray(rows) && rows.length ? rows : [
+          { nick: 'System', text: t.chat.systemWelcome, ts: Date.now() }
+        ])
         setChatLoadState('ready')
       })
       .catch(() => setChatLoadState('error'))
@@ -201,7 +121,9 @@ export default function App() {
   useEffect(() => {
     let cancelled = false, es = null, retryTimer = null, attempt = 0
     fetchElyAuthStatus(API_BASE).then((a) => { if (!cancelled) setAuth(a) }).catch(() => {})
-    fetchMe(API_BASE).then((u) => { if (!cancelled && u?.authenticated) setMe({ nick: u.nick, avatar: u.avatar }) }).catch(() => {})
+    fetchMe(API_BASE).then((u) => {
+      if (!cancelled && u?.authenticated) setMe({ nick: u.nick, avatar: u.avatar })
+    }).catch(() => {})
     loadChatHistory()
 
     const connect = () => {
@@ -209,13 +131,18 @@ export default function App() {
       es?.close()
       setChatStreamState({ status: attempt > 0 ? 'reconnecting' : 'connecting' })
       es = new EventSource(getChatStreamUrl(API_BASE), { withCredentials: true })
-      es.addEventListener('hello', () => { attempt = 0; if (!cancelled) setChatStreamState({ status: 'live' }) })
+      es.addEventListener('hello', () => {
+        attempt = 0
+        if (!cancelled) setChatStreamState({ status: 'live' })
+      })
       es.addEventListener('message', (event) => {
         try {
           const msg = JSON.parse(event.data)
           setChat((prev) => {
             const last = prev[prev.length - 1]
-            if (last && last.nick === msg.nick && last.text === msg.text && last.ts === msg.ts) return prev
+            if (last && last.nick === msg.nick && last.text === msg.text && last.ts === msg.ts) {
+              return prev
+            }
             return [...prev, msg].slice(-200)
           })
         } catch { /* ignore */ }
@@ -229,7 +156,11 @@ export default function App() {
       }
     }
     connect()
-    return () => { cancelled = true; clearTimeout(retryTimer); es?.close() }
+    return () => {
+      cancelled = true
+      clearTimeout(retryTimer)
+      es?.close()
+    }
   }, [loadChatHistory])
 
   // Stats history
@@ -237,7 +168,7 @@ export default function App() {
     if (tab !== 'stats') return
     const ac = new AbortController()
     setStatsLoading(true)
-    fetchStatsHistory(API_BASE, hp.host, hp.port, rangeHours, ac.signal)
+    fetchStatsHistory(API_BASE, host, port, rangeHours, ac.signal)
       .then((res) => {
         if (!res || !Array.isArray(res.points)) return
         setStats((old) => {
@@ -248,33 +179,35 @@ export default function App() {
           return {
             ...old,
             history24h: res.points,
-            peak:       Math.max(Number(res.peak || 0), old.peak || 0),
-            offlines:   Number(res.offlines ?? 0),
-            avgUptime:  avg ? `${hh}:${mm}:${ss}` : old.avgUptime
+            peak: Math.max(Number(res.peak || 0), old.peak || 0),
+            offlines: Number(res.offlines ?? 0),
+            avgUptime: avg ? `${hh}:${mm}:${ss}` : old.avgUptime
           }
         })
       })
-      .catch((err) => { if (err?.name !== 'AbortError') console.warn('[stats]', err) })
+      .catch((err) => {
+        if (err?.name !== 'AbortError') console.warn('[stats]', err)
+      })
       .finally(() => setStatsLoading(false))
     return () => ac.abort()
-  }, [tab, hp.host, hp.port, rangeHours, sk])
+  }, [tab, host, port, rangeHours, setStats])
 
   // Load DB player sessions for stats
   useEffect(() => {
     if (tab !== 'stats') return
-    fetchPlayersStats(API_BASE, hp.host, hp.port)
+    fetchPlayersStats(API_BASE, host, port)
       .then((rows) => { if (Array.isArray(rows)) setPlayersList(rows) })
       .catch(() => {})
-  }, [tab, hp.host, hp.port])
+  }, [tab, host, port])
 
   const activeSession = activeNick ? lastOpenSessionStart(sessions, activeNick) : undefined
 
   const TAB_TITLES = {
     dashboard: t.tabs.dashboard,
-    stats:     t.tabs.stats,
-    chat:      t.tabs.chat,
-    details:   t.tabs.details || 'Подробности',
-    map:       t.tabs.map
+    stats: t.tabs.stats,
+    chat: t.tabs.chat,
+    details: t.tabs.details || 'Подробности',
+    map: t.tabs.map
   }
 
   return (
@@ -401,7 +334,11 @@ export default function App() {
               onPlayerClick={setActiveNick}
               onLogin={() => { window.location.href = getElyLoginStartUrl(API_BASE) }}
               onLogout={async () => {
-                try { await logout(API_BASE); setMe(null); setAuthBanner({ type: 'success', text: t.auth.signedOut }) } catch { /* ignore */ }
+                try {
+                  await logout(API_BASE)
+                  setMe(null)
+                  setAuthBanner({ type: 'success', text: t.auth.signedOut })
+                } catch { /* ignore */ }
               }}
               onSend={async (text) => {
                 setSendError('')
@@ -419,20 +356,18 @@ export default function App() {
           {tab === 'details' && (
             <DetailsPanel
               apiBase={API_BASE}
-              host={hp.host}
-              port={hp.port}
+              host={host}
+              port={port}
               labels={t.details || {}}
             />
           )}
 
           {tab === 'map' && (
-            <div className="card fade-in" style={{ display: 'grid', placeItems: 'center', padding: '60px 20px', textAlign: 'center' }}>
-              <div style={{ fontSize: '48px', marginBottom: '16px' }}>🚧</div>
-              <h2 style={{ marginBottom: '8px', color: 'var(--text-1)' }}>Ведутся Технические Работы</h2>
-              <p style={{ color: 'var(--text-3)', maxWidth: '400px', lineHeight: 1.5 }}>
-                Вкладка "Карта" временно недоступна в связи с доработкой интерактивных модулей. Мы скоро всё вернём!
-              </p>
-            </div>
+            <MapPanel
+              host={host}
+              port={port}
+              labels={t.map || {}}
+            />
           )}
         </main>
 
@@ -465,11 +400,14 @@ export default function App() {
               labels={t.settings}
               me={me}
               authEnabled={auth?.enabled}
-              onChange={(patch) => setSettings((s) => ({ ...s, ...patch }))}
+              onChange={updateSettings}
               onAskNotifications={requestNotificationPermission}
               onLogin={() => { window.location.href = getElyLoginStartUrl(API_BASE) }}
               onLogout={async () => {
-                try { await logout(API_BASE); setMe(null) } catch { /* ignore */ }
+                try {
+                  await logout(API_BASE)
+                  setMe(null)
+                } catch { /* ignore */ }
               }}
             />
           </aside>
@@ -480,8 +418,8 @@ export default function App() {
       <PlayerModal
         nick={activeNick}
         apiBase={API_BASE}
-        host={hp.host}
-        port={hp.port}
+        host={host}
+        port={port}
         sessionSince={activeSession}
         history={sessions[activeNick] || []}
         labels={t.player}
