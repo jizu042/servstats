@@ -17,6 +17,6 @@
     "minecraft-server-util": "^5.4.4",
     "pg": "^8.12.0",
     "pg-types": "^4.1.0",
-    "redis": "^4.7.0"
+    "redis": "^5.11.0"
   }
 }
