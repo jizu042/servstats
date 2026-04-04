@@ -116,6 +116,9 @@ export default function ChatPanel({
                   title={`Открыть профиль ${m.nick}`}
                 >
                   {m.nick}
+                  {m.verified && (
+                    <span className="verify-badge" title="Верифицировано через Ely.by">✓</span>
+                  )}
                 </b>
                 <span className="chat-time">
                   {m.ts ? new Date(m.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}

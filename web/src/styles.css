@@ -591,7 +591,6 @@ body::after {
 .banner-close:hover { opacity: 1; border-color: transparent; }
 
 /* ── Server card ─────────────────────────────────────────── */
-.server-card { }
 
 .server-header {
   display: flex;
@@ -853,7 +852,6 @@ body::after {
 }
 
 /* ── Stats panel ─────────────────────────────────────────── */
-.stats-card { }
 
 .stats-controls {
   display: flex;
@@ -1141,6 +1139,22 @@ body::after {
 }
 
 .chat-nick:hover { color: var(--text); }
+.verify-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 5px;
+  width: 13px;
+  height: 13px;
+  background: var(--purple);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: 900;
+  vertical-align: middle;
+  box-shadow: 0 0 5px var(--purple-ring);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
 
 .chat-time {
   font-size: 10.5px;

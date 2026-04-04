@@ -81,9 +81,9 @@ const chatMessages = [{ nick: 'System', text: 'Chat API ready', ts: Date.now() }
 app.get('/api/chat/messages', async (_req, res) => {
   if (hasDb && pool) {
     const q = await pool.query(
-      'SELECT nick, text, EXTRACT(EPOCH FROM ts) * 1000 AS ts FROM chat_messages ORDER BY ts DESC LIMIT 100'
+      'SELECT nick, text, EXTRACT(EPOCH FROM ts) * 1000 AS ts, is_verified FROM chat_messages ORDER BY ts DESC LIMIT 100'
     )
-    return res.json(q.rows.reverse().map((r) => ({ nick: r.nick, text: r.text, ts: Number(r.ts) })))
+    return res.json(q.rows.reverse().map((r) => ({ nick: r.nick, text: r.text, ts: Number(r.ts), verified: Boolean(r.is_verified) })))
   }
   res.json(chatMessages.slice(-100))
 })
@@ -101,15 +101,32 @@ app.get('/api/chat/stream', (req, res) => {
 
 app.post('/api/chat/messages', async (req, res) => {
   try {
-    const me   = getUserFromRequest(req)
-    const nick = String(me?.nick || req.body?.nick || 'Guest').slice(0, 24)
+    const me     = getUserFromRequest(req)
+    const isAuth = Boolean(me?.nick)
+    const authEnabled = Boolean(process.env.ELY_OAUTH_CLIENT_ID)
+
+    // If auth is enabled, only allow writing if authenticated, OR force Guest
+    // Let's allow Guests but strictly override their nickname to 'Guest'
+    let nick = 'Guest'
+    if (isAuth) {
+      nick = me.nick.slice(0, 24)
+    } else if (authEnabled) {
+      // If auth is enabled but they aren't logged in, they can ONLY be Guest
+      // We don't allow them to pick a name in req.body.nick
+      nick = 'Guest'
+    } else {
+      // If auth is disabled entirely (demo mode), let them pick a name but default to Guest
+      nick = String(req.body?.nick || 'Guest').trim().slice(0, 24) || 'Guest'
+    }
+
     const text = String(req.body?.text || '').trim().slice(0, 300)
     if (!text) return res.status(400).json({ error: 'text is required' })
-    const msg = { nick, text, ts: Date.now() }
+
+    const msg = { nick, text, ts: Date.now(), verified: isAuth }
     if (hasDb && pool) {
       await pool.query(
-        'INSERT INTO chat_messages(nick, text, ts) VALUES($1, $2, TO_TIMESTAMP($3 / 1000.0))',
-        [nick, text, msg.ts]
+        'INSERT INTO chat_messages(nick, text, ts, is_verified) VALUES($1, $2, TO_TIMESTAMP($3 / 1000.0), $4)',
+        [nick, text, msg.ts, isAuth]
       )
       if (redis?.isOpen) await redis.publish('chat:messages', JSON.stringify(msg))
       broadcastChat(msg)
