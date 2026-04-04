@@ -1,3 +1,4 @@
+
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -58,6 +59,8 @@ export default function StatsPanel({ stats, labels, loading }) {
     }
   }
 
+  const players = stats.players || [];
+
   return (
     <section className="card stats-card">
       <h3>{l.title}</h3>
@@ -95,6 +98,23 @@ export default function StatsPanel({ stats, labels, loading }) {
           </div>
         )}
         {!loading && points.length > 0 && <Line data={data} options={options} />}
+      </div>
+      <div className="players-history-wrap">
+        <h3>{l.playersHistory || 'Player History'}</h3>
+        <div className="players-history-list">
+            {players.length === 0 && <p className="muted">{l.empty}</p>}
+            {players.map((p, i) => (
+                <div key={i} className="player-history-item">
+                    <div className="phi-nick">
+                        <img src={`https://craft.ely.by/api/player/head/${encodeURIComponent(p.nick)}`} alt="" width={24} height={24} style={{borderRadius: 4}}/>
+                        <b>{p.nick}</b>
+                    </div>
+                    <div className="phi-time">
+                        <span className="muted mono">{new Date(p.start).toLocaleString()} &rarr; {p.end ? new Date(p.end).toLocaleString() : 'Now'}</span>
+                    </div>
+                </div>
+            ))}
+        </div>
       </div>
     </section>
   )

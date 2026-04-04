@@ -1,7 +1,9 @@
+
 import express from 'express'
 import cors from 'cors'
 import crypto from 'node:crypto'
 import { closeDb, connectRedis, hasDb, hasRedis, pool, redis } from './db.js'
+import util from 'minecraft-server-util'
 
 const app = express()
 const PORT = Number(process.env.PORT || 8787)
@@ -34,8 +36,26 @@ app.get('/api/status', async (req, res) => {
   if (!host) return res.status(400).json({ error: 'host is required' })
 
   try {
-    const data = await getServerStatus({ host, port, source })
+    let data = await getServerStatus({ host, port, source })
     if (hasDb && pool) {
+      const serverId = await getServerId(data.host, data.port)
+      if (serverId) {
+        const uptimeRes = await pool.query(`
+          SELECT ts, online FROM server_samples 
+          WHERE server_id = $1 
+          ORDER BY ts DESC LIMIT 100
+        `, [serverId])
+        
+        let onlineSince = null;
+        if (data.online) {
+            onlineSince = Date.now();
+            for (const row of uptimeRes.rows) {
+                if (!row.online) break;
+                onlineSince = new Date(row.ts).getTime();
+            }
+        }
+        data.onlineSince = onlineSince;
+      }
       await ensureServer({ host: data.host, port: data.port })
     }
     res.json(data)
@@ -274,6 +294,25 @@ app.get('/api/servers', async (_req, res) => {
   res.json(q.rows)
 })
 
+app.get('/api/stats/players', async (req, res) => {
+  const host = String(req.query.host || '').trim()
+  const port = Number(req.query.port || 25565)
+  if (!host) return res.status(400).json({ error: 'host is required' })
+  if (!(hasDb && pool)) return res.json([])
+  const serverId = await getServerId(host, port)
+  if (!serverId) return res.json([])
+  
+  const q = await pool.query(
+    `SELECT nick, EXTRACT(EPOCH FROM started_at) * 1000 AS started_at, EXTRACT(EPOCH FROM ended_at) * 1000 AS ended_at
+     FROM player_sessions
+     WHERE server_id = $1
+     ORDER BY started_at DESC
+     LIMIT 50`,
+     [serverId]
+  )
+  res.json(q.rows.map(r => ({ nick: r.nick, start: Number(r.started_at), end: r.ended_at ? Number(r.ended_at) : null })))
+})
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`mc-monitor-api listening on ${PORT}`)
 })
@@ -286,8 +325,59 @@ process.on('SIGINT', shutdown)
 process.on('SIGTERM', shutdown)
 
 async function getServerStatus({ host, port, source }) {
-  if (source === 'ismcserver') return normalizeIsmc(await fromIsmc(host, port), host, port)
-  if (source === 'mcstatus') return normalizeMcstatus(await fromMcstatus(host, port), host, port)
+  // Always try direct connection first if possible, to get real ping
+  let directPing = null;
+  let directData = null;
+  try {
+    const res = await util.status(host, port, { timeout: 3000, enableSRV: true });
+    directPing = res.roundTripLatency;
+    directData = {
+        source: 'direct',
+        online: true,
+        host,
+        port,
+        ping: directPing,
+        favicon: res.favicon || null,
+        motd: {
+            raw: res.motd?.raw || '',
+            clean: res.motd?.clean || ''
+        },
+        players: buildPlayers({
+            online: res.players?.online,
+            max: res.players?.max,
+            sample: res.players?.sample
+        })
+    }
+  } catch (e) {
+    // direct failed
+  }
+
+  if (source === 'direct' && directData) return directData;
+  if (source === 'ismcserver') {
+      const ismc = normalizeIsmc(await fromIsmc(host, port), host, port);
+      if (directData) {
+          ismc.ping = directPing;
+          ismc.details = { direct: directData, ismcserver: ismc };
+      }
+      return ismc;
+  }
+  if (source === 'mcstatus') {
+      const mc = normalizeMcstatus(await fromMcstatus(host, port), host, port);
+      if (directData) {
+          mc.ping = directPing;
+          mc.details = { direct: directData, mcstatus: mc };
+      }
+      return mc;
+  }
+
+  // Auto
+  if (directData) {
+      try {
+          const ismc = normalizeIsmc(await fromIsmc(host, port), host, port);
+          directData.details = { direct: { ...directData }, ismcserver: ismc };
+      } catch (e) {}
+      return directData;
+  }
 
   try {
     return normalizeIsmc(await fromIsmc(host, port), host, port)
