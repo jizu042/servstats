@@ -6,10 +6,10 @@ import { fetchPlayerSessions } from '../lib/api'
 import PlayerFace from './PlayerFace'
 
 const SKIN_SOURCES = [
-  { name: 'Ely.by', url: (nick) => `https://skinsystem.ely.by/skins/${encodeURIComponent(nick)}.png` },
   { name: 'Minotar', url: (nick) => `https://minotar.net/skin/${encodeURIComponent(nick)}` },
   { name: 'Crafatar', url: (nick) => `https://crafatar.com/skins/${encodeURIComponent(nick)}` },
   { name: 'MC-Heads', url: (nick) => `https://mc-heads.net/skin/${encodeURIComponent(nick)}` },
+  { name: 'Ely.by', url: (nick) => `https://skinsystem.ely.by/skins/${encodeURIComponent(nick)}.png` },
   { name: 'Steve', url: () => 'https://minotar.net/skin/Steve' }
 ]
 
@@ -18,11 +18,15 @@ async function loadSkinWithFallback(viewer, nick) {
     try {
       const url = source.url(nick)
       console.log(`[PlayerModal] Trying to load skin from ${source.name}: ${url}`)
+
+      // Проверяем доступность URL перед загрузкой в viewer
+      const response = await fetch(url, { method: 'HEAD', mode: 'no-cors' })
+
       await viewer.loadSkin(url)
-      console.log(`[PlayerModal] Successfully loaded skin from ${source.name}`)
+      console.log(`[PlayerModal] ✅ Successfully loaded skin from ${source.name}`)
       return true
     } catch (err) {
-      console.log(`[PlayerModal] Failed to load from ${source.name}:`, err.message)
+      console.log(`[PlayerModal] ❌ Failed to load from ${source.name}:`, err.message)
       continue
     }
   }

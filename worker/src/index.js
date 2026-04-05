@@ -160,13 +160,25 @@ async function getServerStatus({ host, port, source, timeout: ms }) {
 
   if (source === 'ismcserver') return normalizeIsmc(await fromIsmc(host, port, ms), host, port)
   if (source === 'mcstatus')   return normalizeMcstatus(await fromMcstatus(host, port, ms), host, port)
+  if (source === 'mcsrvstat')  return normalizeMcsrvstat(await fromMcsrvstat(host, port, ms), host, port)
 
-  // Auto fallback
-  try {
-    return normalizeIsmc(await fromIsmc(host, port, ms), host, port)
-  } catch {
-    return normalizeMcstatus(await fromMcstatus(host, port, ms), host, port)
+  // Auto fallback - try all sources
+  const sources = [
+    { fn: () => fromIsmc(host, port, ms), normalize: (d) => normalizeIsmc(d, host, port) },
+    { fn: () => fromMcstatus(host, port, ms), normalize: (d) => normalizeMcstatus(d, host, port) },
+    { fn: () => fromMcsrvstat(host, port, ms), normalize: (d) => normalizeMcsrvstat(d, host, port) }
+  ]
+
+  for (const source of sources) {
+    try {
+      const data = await source.fn()
+      return source.normalize(data)
+    } catch (err) {
+      continue
+    }
   }
+
+  throw new Error('All API sources failed')
 }
 
 async function fromIsmc(host, port, timeoutMs) {
@@ -186,6 +198,15 @@ async function fromMcstatus(host, port, timeoutMs) {
     { signal: AbortSignal.timeout(timeoutMs) }
   )
   if (!r.ok) throw new Error(`mcstatus ${r.status}`)
+  return r.json()
+}
+
+async function fromMcsrvstat(host, port, timeoutMs) {
+  const r = await fetch(
+    `https://api.mcsrvstat.us/3/${encodeURIComponent(host)}:${encodeURIComponent(port)}`,
+    { signal: AbortSignal.timeout(timeoutMs) }
+  )
+  if (!r.ok) throw new Error(`mcsrvstat ${r.status}`)
   return r.json()
 }
 
@@ -227,6 +248,17 @@ function normalizeMcstatus(raw, host, port) {
     port:    raw?.port || port,
     ping:    raw?.latency ?? raw?.ping ?? null,
     players: buildPlayers({ online: raw?.players?.online, max: raw?.players?.max })
+  }
+}
+
+function normalizeMcsrvstat(raw, host, port) {
+  return {
+    source:  'mcsrvstat',
+    online:  Boolean(raw?.online),
+    host:    raw?.hostname || host,
+    port:    raw?.port || port,
+    ping:    null,
+    players: buildPlayers({ online: raw?.players?.online, max: raw?.players?.max, list: raw?.players?.list })
   }
 }
 

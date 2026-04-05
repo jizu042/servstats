@@ -150,8 +150,12 @@ app.post('/api/chat/messages', async (req, res) => {
         'INSERT INTO chat_messages(nick, text, ts, is_verified) VALUES($1, $2, TO_TIMESTAMP($3 / 1000.0), $4)',
         [nick, text, msg.ts, isAuth]
       )
-      if (redis?.isOpen) await redis.publish('chat:messages', JSON.stringify(msg))
-      broadcastChat(msg)
+      // Broadcast only once - either via Redis or directly
+      if (redis?.isOpen) {
+        await redis.publish('chat:messages', JSON.stringify(msg))
+      } else {
+        broadcastChat(msg)
+      }
       return res.status(201).json(msg)
     }
     broadcastChat(msg)
@@ -232,8 +236,8 @@ app.get('/api/me', (req, res) => {
   const user = getUserFromRequest(req)
   if (!user) return res.json({ authenticated: false })
 
-  // Use Ely.by avatar for authenticated users (better quality)
-  const avatar = `https://skinsystem.ely.by/skins/${encodeURIComponent(user.nick)}.png`
+  // Use Minotar for avatar (works for all accounts including pirated)
+  const avatar = `https://minotar.net/helm/${encodeURIComponent(user.nick)}/64.png`
 
   res.json({
     authenticated: true,
