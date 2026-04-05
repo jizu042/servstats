@@ -7,6 +7,7 @@
     "dev": "node --watch src/index.js",
     "build": "node -e \"console.log('build ok')\"",
     "migrate": "node src/migrate.js",
+    "reset-db": "node src/reset-db.js",
     "start": "node src/index.js"
   },
   "dependencies": {
