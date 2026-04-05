@@ -276,8 +276,9 @@ app.get('/api/me', (req, res) => {
   const user = getUserFromRequest(req)
   if (!user) return res.json({ authenticated: false })
 
-  // Use Minotar for avatar (works for all accounts including pirated)
-  const avatar = `https://minotar.net/helm/${encodeURIComponent(user.nick)}/64.png`
+  // Use our skin proxy (loads from Ely.by first, then Minotar)
+  const baseUrl = process.env.APP_BASE_URL || process.env.FRONTEND_URL || `http://localhost:${PORT}`
+  const avatar = `${baseUrl}/api/skin/${encodeURIComponent(user.nick)}`
 
   res.json({
     authenticated: true,
