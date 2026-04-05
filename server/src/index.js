@@ -298,7 +298,7 @@ app.get('/api/skin/:nick', async (req, res) => {
   if (!nick) return res.status(400).send('nick is required')
 
   try {
-    // Try Ely.by first
+    // Use ONLY Ely.by
     const elyUrl = `https://skinsystem.ely.by/skins/${encodeURIComponent(nick)}.png`
     const elyRes = await fetch(elyUrl)
 
@@ -310,22 +310,10 @@ app.get('/api/skin/:nick', async (req, res) => {
       return res.send(Buffer.from(buffer))
     }
 
-    // Fallback to Minotar
-    const minотarUrl = `https://minotar.net/skin/${encodeURIComponent(nick)}`
-    const minотarRes = await fetch(minотarUrl)
-
-    if (minотarRes.ok) {
-      const buffer = await minотarRes.arrayBuffer()
-      res.setHeader('Content-Type', 'image/png')
-      res.setHeader('Cache-Control', 'public, max-age=3600')
-      res.setHeader('Access-Control-Allow-Origin', '*')
-      return res.send(Buffer.from(buffer))
-    }
-
-    res.status(404).send('Skin not found')
+    res.status(404).send('Skin not found on Ely.by')
   } catch (err) {
     console.error('[skin-proxy] error:', err.message)
-    res.status(500).send('Failed to fetch skin')
+    res.status(500).send('Failed to fetch skin from Ely.by')
   }
 })
 
