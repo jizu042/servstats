@@ -93,7 +93,9 @@ function SourceCard({ source, data, loading, error }) {
           {data.version && (
             <div className="detail-row">
               <span className="detail-row-label">Версия</span>
-              <span className="detail-row-val" style={{ fontSize: 12, color: 'var(--text-2)' }}>{data.version}</span>
+              <span className="detail-row-val" style={{ fontSize: 12, color: 'var(--text-2)' }}>
+                {typeof data.version === 'string' ? data.version : data.version.name_clean || data.version.name_raw || data.version.name || 'Unknown'}
+              </span>
             </div>
           )}
           {data.software && (

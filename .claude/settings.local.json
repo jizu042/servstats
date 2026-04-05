@@ -7,7 +7,10 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(curl -s \"https://mc-monitor-api.onrender.com/api/status?host=143.14.50.57&port=25566\")",
+      "Bash(curl -s \"https://mc-monitor-api.onrender.com/api/status/details?host=143.14.50.57&port=25566\")",
+      "Bash(curl:*)"
     ]
   }
 }
