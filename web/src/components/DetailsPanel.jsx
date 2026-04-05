@@ -53,7 +53,7 @@ function SourceCard({ source, data, loading, error }) {
               padding: '3px 9px',
               borderRadius: 999,
               background: data.online ? 'var(--accent-dim)' : 'var(--red-dim)',
-              border: `1px solid ${data.online ? 'var(--accent-ring)' : 'rgba(248,113,113,0.3)'}`,
+              border: `1px solid ${data.online ? 'var(--accent-ring)' : 'var(--red-dim)'}`,
               color: data.online ? 'var(--accent)' : 'var(--red)',
               fontWeight: 600,
               flexShrink: 0
@@ -209,27 +209,27 @@ export default function DetailsPanel({ apiBase, host, port, labels }) {
         ))}
       </div>
 
-        {data && !loading && (
-          <div className="card" style={{ marginTop: 16 }}>
-            <div className="card-header">
-              <h3 className="card-title">Сводка Пинга</h3>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
-              {[data.direct, data.ismcserver, data.mcstatus, data.mcsrvstat]
-                .filter(s => s && s.online && (s.ping !== null && s.ping !== undefined))
-                .sort((a, b) => (a.source === 'direct' ? -1 : 1)) // Prioritize direct
-                .map((s, i) => (
-                  <div key={i} className="metric-box">
-                    <span className="metric-label">{s.source || `Источник ${i + 1}`}</span>
-                    <div className="metric-value" style={{ fontSize: '1.1rem', color: s.ping < 100 ? 'var(--accent)' : 'var(--yellow)' }}>
-                      {s.ping} ms
-                    </div>
-                    <div className="metric-sub">пинг</div>
-                  </div>
-                ))}
-            </div>
+      {data && !loading && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <div className="card-header">
+            <h3 className="card-title">Сводка Пинга</h3>
           </div>
-        )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
+            {[data.direct, data.ismcserver, data.mcstatus, data.mcsrvstat]
+              .filter(s => s && s.online && (s.ping !== null && s.ping !== undefined))
+              .sort((a, b) => (a.source === 'direct' ? -1 : 1))
+              .map((s, i) => (
+                <div key={`${s.source || 'source'}-${i}`} className="metric-box">
+                  <span className="metric-label">{s.source || `Источник ${i + 1}`}</span>
+                  <div className="metric-value" style={{ fontSize: '1.1rem', color: s.ping < 100 ? 'var(--accent)' : 'var(--yellow)' }}>
+                    {s.ping} ms
+                  </div>
+                  <div className="metric-sub">пинг</div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
     </section>
   )
 }

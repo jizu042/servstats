@@ -1,7 +1,7 @@
 import { Pool } from 'pg'
 import util from 'minecraft-server-util'
 
-const interval      = Number(process.env.POLL_INTERVAL_MS || 14 * 60 * 1000) // 14 minutes
+const interval      = Number(process.env.POLL_INTERVAL_MS || 5 * 60 * 1000) // 5 minutes (improved from 14)
 const timeout       = Number(process.env.POLL_TIMEOUT_MS  || 8000)
 const apiPreference = String(process.env.API_SOURCE_PREFERENCE || 'auto')
 const retentionDays = Math.max(1, Number(process.env.STATS_RAW_RETENTION_DAYS || 30))
@@ -54,7 +54,7 @@ async function tick() {
 
       // Update player sessions
       if (status.online) {
-        const currentNicks = new Set(status.players.list || [])
+        const currentNicks = new Set((status.players.list || []).filter(n => n && n.trim()))
         const previous     = prevPlayers[key] || new Set()
 
         // Players who just joined (in current, not in previous)
@@ -72,7 +72,7 @@ async function tick() {
                VALUES($1, $2, NOW())`,
               [id, nick]
             )
-            console.log(`[collector] session opened: ${nick}`)
+            console.log(`[collector] ✓ session opened: ${nick} on ${key}`)
           }
         }
 
@@ -85,11 +85,15 @@ async function tick() {
                WHERE server_id = $1 AND nick = $2 AND ended_at IS NULL`,
               [id, nick]
             )
-            console.log(`[collector] session closed: ${nick}`)
+            console.log(`[collector] ✓ session closed: ${nick} on ${key}`)
           }
         }
 
         prevPlayers[key] = currentNicks
+
+        if (currentNicks.size > 0) {
+          console.log(`[collector] ${key} tracking ${currentNicks.size} players: ${Array.from(currentNicks).join(', ')}`)
+        }
       } else {
         // Server went offline — close all open sessions
         if (prevPlayers[key] && prevPlayers[key].size > 0) {

@@ -32,17 +32,37 @@ export default function StatsPanel({ stats, playersList, labels, loading, onPlay
     ? (t) => new Date(t).toLocaleDateString([], { day: '2-digit', month: '2-digit' })
     : (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
+  // Get computed CSS variables for theme-aware colors
+  const getChartColors = () => {
+    const root = document.documentElement
+    const style = getComputedStyle(root)
+    const isDark = root.getAttribute('data-theme') !== 'light'
+
+    return {
+      purple: style.getPropertyValue('--purple').trim() || '#8b5cf6',
+      purpleDim: style.getPropertyValue('--purple-dim').trim() || 'rgba(139, 92, 246, 0.1)',
+      purpleRing: style.getPropertyValue('--purple-ring').trim() || 'rgba(139,92,246,0.4)',
+      text3: style.getPropertyValue('--text-3').trim() || '#5c6082',
+      text: style.getPropertyValue('--text').trim() || '#f1f2f8',
+      card: style.getPropertyValue('--card').trim() || 'rgba(15,17,32,0.95)',
+      gridColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
+      borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'
+    }
+  }
+
+  const colors = getChartColors()
+
   const data = {
     labels: points.map((p) => fmt(p.t)),
     datasets: [{
       label: l.onlinePlayers,
       data: points.map((p) => p.v),
-      borderColor: '#8b5cf6',
-      backgroundColor: 'rgba(139, 92, 246, 0.1)',
+      borderColor: colors.purple,
+      backgroundColor: colors.purpleDim,
       fill: true,
       tension: 0.3,
       pointRadius: points.length > 120 ? 0 : 2,
-      pointBackgroundColor: '#8b5cf6',
+      pointBackgroundColor: colors.purple,
       pointHitRadius: 8,
       borderWidth: 2
     }]
@@ -56,28 +76,28 @@ export default function StatsPanel({ stats, playersList, labels, loading, onPlay
       x: {
         ticks: {
           maxTicksLimit: isWeek ? 8 : 12,
-          color: '#5c6082',
+          color: colors.text3,
           maxRotation: 0,
           font: { size: 11, family: 'Inter' }
         },
-        grid: { color: 'rgba(255,255,255,0.04)' },
-        border: { color: 'rgba(255,255,255,0.06)' }
+        grid: { color: colors.gridColor },
+        border: { color: colors.borderColor }
       },
       y: {
         beginAtZero: true,
-        ticks: { color: '#5c6082', font: { size: 11, family: 'Inter' } },
-        grid: { color: 'rgba(255,255,255,0.04)' },
-        border: { color: 'rgba(255,255,255,0.06)' }
+        ticks: { color: colors.text3, font: { size: 11, family: 'Inter' } },
+        grid: { color: colors.gridColor },
+        border: { color: colors.borderColor }
       }
     },
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: 'rgba(15,17,32,0.95)',
-        borderColor: 'rgba(139,92,246,0.4)',
+        backgroundColor: colors.card,
+        borderColor: colors.purpleRing,
         borderWidth: 1,
-        titleColor: '#8b5cf6',
-        bodyColor: '#f1f2f8',
+        titleColor: colors.purple,
+        bodyColor: colors.text,
         padding: 10,
         cornerRadius: 8
       }
@@ -87,14 +107,16 @@ export default function StatsPanel({ stats, playersList, labels, loading, onPlay
   // Aggregate playersList by nick (sum durations, count visits)
   const playerAgg = {}
   for (const p of (playersList || [])) {
-    if (!p.nick) continue
+    if (!p.nick || !p.start) continue
     if (!playerAgg[p.nick]) playerAgg[p.nick] = { nick: p.nick, visits: 0, totalMs: 0, lastSeen: 0 }
     const dur = p.end ? (p.end - p.start) : (Date.now() - p.start)
     playerAgg[p.nick].visits    += 1
-    playerAgg[p.nick].totalMs  += dur
+    playerAgg[p.nick].totalMs   += Math.max(0, dur)
     playerAgg[p.nick].lastSeen  = Math.max(playerAgg[p.nick].lastSeen, p.end || p.start)
   }
   const aggPlayers = Object.values(playerAgg).sort((a, b) => b.totalMs - a.totalMs)
+
+  console.log('[StatsPanel] playersList:', playersList?.length || 0, 'aggPlayers:', aggPlayers.length)
 
   return (
     <section className="card stats-card fade-in">

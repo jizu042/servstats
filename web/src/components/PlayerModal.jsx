@@ -5,12 +5,23 @@ import { fetchPlayerSessions } from '../lib/api'
 
 import PlayerFace from './PlayerFace'
 
-function elySkinUrl(nick) {
-  return `http://skinsystem.ely.by/skins/${encodeURIComponent(nick)}.png`
-}
+const SKIN_SOURCES = [
+  { name: 'Ely.by', url: (nick) => `https://skinsystem.ely.by/skins/${encodeURIComponent(nick)}.png` },
+  { name: 'Minotar', url: (nick) => `https://minotar.net/skin/${encodeURIComponent(nick)}` },
+  { name: 'Crafatar', url: (nick) => `https://crafatar.com/skins/${encodeURIComponent(nick)}` },
+  { name: 'MC-Heads', url: (nick) => `https://mc-heads.net/skin/${encodeURIComponent(nick)}` }
+]
 
-function mcHeadsSkinUrl(nick) {
-  return `https://minotar.net/skin/${encodeURIComponent(nick)}`
+async function loadSkinWithFallback(viewer, nick) {
+  for (const source of SKIN_SOURCES) {
+    try {
+      await viewer.loadSkin(source.url(nick))
+      return true
+    } catch (err) {
+      continue
+    }
+  }
+  return false
 }
 
 function formatDuration(ms) {
@@ -44,10 +55,14 @@ export default function PlayerModal({ nick, apiBase, host, port, sessionSince, h
     viewerRef.current = viewer
     setSkinFailed(false)
 
-    viewer.loadSkin(elySkinUrl(nick))
-      .catch(() => viewer.loadSkin(mcHeadsSkinUrl(nick)))
-      .catch(() => { setSkinFailed(true); return viewer.loadSkin(mcHeadsSkinUrl('Steve')) })
-      .catch(() => {})
+    loadSkinWithFallback(viewer, nick)
+      .then((success) => {
+        if (!success) {
+          setSkinFailed(true)
+          return loadSkinWithFallback(viewer, 'Steve')
+        }
+      })
+      .catch(() => setSkinFailed(true))
 
     const ro = new ResizeObserver(() => {
       viewer.width  = Math.min(440, canvas.parentElement?.clientWidth || 440)

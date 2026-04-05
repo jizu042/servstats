@@ -53,20 +53,26 @@ app.get('/api/status', async (req, res) => {
       await ensureServer({ host: data.host, port: data.port })
       const serverId = await getServerId(data.host, data.port)
       if (serverId && data.online) {
-        // Walk backwards from latest sample to find start of current online streak (max 100 samples ~ 1400 mins)
+        // Walk backwards from latest sample to find start of current online streak
         const uptimeRes = await pool.query(
           `SELECT ts, online FROM server_samples
            WHERE server_id = $1
-           ORDER BY ts DESC LIMIT 100`,
+           ORDER BY ts DESC LIMIT 200`,
           [serverId]
         )
-        let onlineSince = Date.now()
-        for (const row of uptimeRes.rows) {
-          if (!row.online) break
-          onlineSince = new Date(row.ts).getTime()
+
+        if (uptimeRes.rows.length > 0) {
+          let onlineSince = Date.now()
+          for (const row of uptimeRes.rows) {
+            if (!row.online) break
+            onlineSince = new Date(row.ts).getTime()
+          }
+          data.onlineSince = onlineSince
+          console.log(`[status] ${host}:${port} online since ${new Date(onlineSince).toISOString()}`)
+        } else {
+          // No samples yet, assume just came online
+          data.onlineSince = Date.now()
         }
-        data.onlineSince = onlineSince
-        console.log(`[status] ${host}:${port} online since ${new Date(onlineSince).toISOString()}`)
       } else {
         data.onlineSince = null
       }
@@ -260,15 +266,32 @@ app.get('/api/stats/players', async (req, res) => {
   const host = String(req.query.host || '').trim()
   const port = Number(req.query.port || 25565)
   if (!host || !(hasDb && pool)) return res.json([])
-  const serverId = await getServerId(host, port)
-  if (!serverId) return res.json([])
 
-  const q = await pool.query(
-    `SELECT nick, EXTRACT(EPOCH FROM started_at) * 1000 AS start, EXTRACT(EPOCH FROM ended_at) * 1000 AS end
-     FROM player_sessions WHERE server_id = $1 ORDER BY started_at DESC LIMIT 500`,
-    [serverId]
-  )
-  res.json(q.rows.map((r) => ({ nick: r.nick, start: Number(r.start), end: r.end ? Number(r.end) : null })))
+  try {
+    const serverId = await getServerId(host, port)
+    if (!serverId) return res.json([])
+
+    const q = await pool.query(
+      `SELECT nick, EXTRACT(EPOCH FROM started_at) * 1000 AS start, EXTRACT(EPOCH FROM ended_at) * 1000 AS end
+       FROM player_sessions
+       WHERE server_id = $1 AND nick IS NOT NULL AND nick != ''
+       ORDER BY started_at DESC
+       LIMIT 1000`,
+      [serverId]
+    )
+
+    const sessions = q.rows.map((r) => ({
+      nick: r.nick,
+      start: Number(r.start),
+      end: r.end ? Number(r.end) : null
+    }))
+
+    console.log(`[stats/players] Returning ${sessions.length} sessions for ${host}:${port}`)
+    res.json(sessions)
+  } catch (err) {
+    console.error('[stats/players] Error:', err)
+    res.json([])
+  }
 })
 
 app.get('/api/stats/players/:nick/sessions', async (req, res) => {
