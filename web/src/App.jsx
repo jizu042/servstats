@@ -357,10 +357,10 @@ export default function App() {
                   setAuthBanner({ type: 'success', text: t.auth.signedOut })
                 } catch { /* ignore */ }
               }}
-              onSend={async (text) => {
+              onSend={async (text, imageData) => {
                 setSendError('')
                 try {
-                  const msg = await postChatMessage(API_BASE, me?.nick || 'Guest', text)
+                  const msg = await postChatMessage(API_BASE, me?.nick || 'Guest', text, imageData)
                   setChat((m) => [...m, msg])
                 } catch {
                   setSendError(t.chat.sendFailed)

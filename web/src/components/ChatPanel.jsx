@@ -2,6 +2,9 @@ import { useRef, useState } from 'react'
 
 import PlayerFace from './PlayerFace'
 
+const CLOUDINARY_CLOUD_NAME = 'dbmvzwz2k'
+const CLOUDINARY_UPLOAD_PRESET = 'chat_images' // Unsigned preset для загрузки
+
 export default function ChatPanel({
   profile,
   messages,
@@ -18,7 +21,11 @@ export default function ChatPanel({
 }) {
   const l = labels || {}
   const [text, setText] = useState('')
+  const [imagePreview, setImagePreview] = useState(null)
+  const [uploading, setUploading] = useState(false)
+  const [fullscreenImage, setFullscreenImage] = useState(null)
   const scrollRef = useRef(null)
+  const fileInputRef = useRef(null)
 
   const avatarNick = profile?.nick || 'Steve'
 
@@ -28,13 +35,65 @@ export default function ChatPanel({
     streamStatus === 'reconnecting' ? l.streamReconnecting :
     streamStatus === 'error'        ? l.streamError : '…'
 
+  const handleImageSelect = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Пожалуйста, выберите изображение')
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Изображение слишком большое. Максимум 5MB')
+      return
+    }
+
+    setUploading(true)
+
+    try {
+      // Upload to Cloudinary
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET)
+
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+        {
+          method: 'POST',
+          body: formData
+        }
+      )
+
+      if (!response.ok) throw new Error('Upload failed')
+
+      const data = await response.json()
+      setImagePreview({
+        url: data.secure_url,
+        width: data.width,
+        height: data.height
+      })
+    } catch (err) {
+      console.error('Image upload failed:', err)
+      alert('Не удалось загрузить изображение')
+    } finally {
+      setUploading(false)
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     const trimmed = text.trim()
-    if (!trimmed) return
+    if (!trimmed && !imagePreview) return
+
     try {
-      await onSend(trimmed)
+      await onSend(trimmed, imagePreview)
       setText('')
+      setImagePreview(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+
       // scroll to bottom
       setTimeout(() => {
         if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
@@ -122,7 +181,23 @@ export default function ChatPanel({
                   {m.ts ? new Date(m.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                 </span>
               </div>
-              <p className="chat-text">{m.text}</p>
+              {m.text && <p className="chat-text">{m.text}</p>}
+              {m.imageUrl && (
+                <img
+                  src={m.imageUrl}
+                  alt=""
+                  className="chat-image"
+                  onClick={() => setFullscreenImage(m.imageUrl)}
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: 300,
+                    borderRadius: 8,
+                    marginTop: m.text ? 6 : 0,
+                    cursor: 'pointer',
+                    display: 'block'
+                  }}
+                />
+              )}
             </div>
           </div>
         ))}
@@ -130,9 +205,52 @@ export default function ChatPanel({
 
       {sendError && <p className="chat-send-error">{sendError}</p>}
 
+      {/* Image preview */}
+      {imagePreview && (
+        <div style={{ padding: '8px 12px', background: 'var(--bg-2)', borderRadius: 8, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img src={imagePreview.url} alt="" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 6 }} />
+          <span style={{ fontSize: 13, color: 'var(--text-2)', flex: 1 }}>Изображение готово к отправке</span>
+          <button
+            type="button"
+            onClick={() => {
+              setImagePreview(null)
+              if (fileInputRef.current) fileInputRef.current.value = ''
+            }}
+            style={{ padding: '4px 8px', fontSize: 12, background: 'var(--bg-3)', border: '1px solid var(--card-border)', borderRadius: 4, color: 'var(--text-2)', cursor: 'pointer' }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Send form */}
       <form className="chat-form" onSubmit={handleSubmit}>
         <PlayerFace nick={avatarNick} size={30} style={{ flexShrink: 0, alignSelf: 'center' }} />
+        <input
+          type="file"
+          ref={fileInputRef}
+          accept="image/*"
+          onChange={handleImageSelect}
+          style={{ display: 'none' }}
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading || (!profile?.nick && authEnabled)}
+          style={{
+            padding: '9px 12px',
+            background: 'var(--bg-3)',
+            border: '1px solid var(--card-border)',
+            borderRadius: 6,
+            color: 'var(--text-2)',
+            cursor: uploading ? 'wait' : 'pointer',
+            fontSize: 16,
+            flexShrink: 0
+          }}
+          title="Прикрепить изображение"
+        >
+          {uploading ? '⏳' : '📎'}
+        </button>
         <input
           className="chat-input"
           value={text}
@@ -144,11 +262,46 @@ export default function ChatPanel({
           type="submit"
           className="btn-primary"
           style={{ padding: '9px 16px', flexShrink: 0 }}
-          disabled={!text.trim()}
+          disabled={(!text.trim() && !imagePreview) || uploading}
         >
           {l.send}
         </button>
       </form>
+
+      {/* Fullscreen image modal */}
+      {fullscreenImage && (
+        <div
+          className="modal-backdrop"
+          onClick={() => setFullscreenImage(null)}
+          style={{ zIndex: 9999 }}
+        >
+          <div style={{ maxWidth: '90vw', maxHeight: '90vh', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setFullscreenImage(null)}
+              style={{
+                position: 'absolute',
+                top: -40,
+                right: 0,
+                background: 'rgba(0,0,0,0.7)',
+                border: 'none',
+                color: 'white',
+                fontSize: 24,
+                width: 36,
+                height: 36,
+                borderRadius: 6,
+                cursor: 'pointer'
+              }}
+            >
+              ✕
+            </button>
+            <img
+              src={fullscreenImage}
+              alt=""
+              style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: 8 }}
+            />
+          </div>
+        </div>
+      )}
     </section>
   )
 }

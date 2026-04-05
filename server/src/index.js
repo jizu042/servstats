@@ -159,9 +159,17 @@ app.get('/api/chat/stream', (req, res) => {
 app.get('/api/chat/messages', async (_req, res) => {
   if (hasDb && pool) {
     const q = await pool.query(
-      'SELECT nick, text, EXTRACT(EPOCH FROM ts) * 1000 AS ts, is_verified FROM chat_messages ORDER BY ts DESC LIMIT 100'
+      'SELECT nick, text, EXTRACT(EPOCH FROM ts) * 1000 AS ts, is_verified, image_url, image_width, image_height FROM chat_messages ORDER BY ts DESC LIMIT 100'
     )
-    return res.json(q.rows.reverse().map((r) => ({ nick: r.nick, text: r.text, ts: Number(r.ts), verified: Boolean(r.is_verified) })))
+    return res.json(q.rows.reverse().map((r) => ({
+      nick: r.nick,
+      text: r.text,
+      ts: Number(r.ts),
+      verified: Boolean(r.is_verified),
+      imageUrl: r.image_url,
+      imageWidth: r.image_width,
+      imageHeight: r.image_height
+    })))
   }
   res.json([])
 })
@@ -182,13 +190,29 @@ app.post('/api/chat/messages', async (req, res) => {
     }
 
     const text = String(req.body?.text || '').trim().slice(0, 300)
-    if (!text) return res.status(400).json({ error: 'text is required' })
+    const imageUrl = String(req.body?.imageUrl || '').trim().slice(0, 500)
+    const imageWidth = Number(req.body?.imageWidth) || null
+    const imageHeight = Number(req.body?.imageHeight) || null
 
-    const msg = { nick, text, ts: Date.now(), verified: isAuth }
+    // Must have either text or image
+    if (!text && !imageUrl) {
+      return res.status(400).json({ error: 'text or image is required' })
+    }
+
+    const msg = {
+      nick,
+      text: text || null,
+      ts: Date.now(),
+      verified: isAuth,
+      imageUrl: imageUrl || null,
+      imageWidth,
+      imageHeight
+    }
+
     if (hasDb && pool) {
       await pool.query(
-        'INSERT INTO chat_messages(nick, text, ts, is_verified) VALUES($1, $2, TO_TIMESTAMP($3 / 1000.0), $4)',
-        [nick, text, msg.ts, isAuth]
+        'INSERT INTO chat_messages(nick, text, ts, is_verified, image_url, image_width, image_height) VALUES($1, $2, TO_TIMESTAMP($3 / 1000.0), $4, $5, $6, $7)',
+        [nick, msg.text, msg.ts, isAuth, msg.imageUrl, msg.imageWidth, msg.imageHeight]
       )
       // Broadcast only once - either via Redis or directly
       if (redis?.isOpen) {

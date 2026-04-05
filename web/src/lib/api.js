@@ -20,12 +20,20 @@ export async function fetchChatMessages(baseUrl) {
   return res.json()
 }
 
-export async function postChatMessage(baseUrl, nick, text) {
+export async function postChatMessage(baseUrl, nick, text, imageData) {
+  const body = { nick, text }
+
+  if (imageData) {
+    body.imageUrl = imageData.url
+    body.imageWidth = imageData.width
+    body.imageHeight = imageData.height
+  }
+
   const res = await fetch(`${base(baseUrl)}/api/chat/messages`, {
     method: 'POST',
     headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
     credentials: 'include',
-    body: JSON.stringify({ nick, text })
+    body: JSON.stringify(body)
   })
   if (!res.ok) throw new Error('Failed to send chat')
   return res.json()

@@ -36,9 +36,12 @@ CREATE TABLE server_samples (
 CREATE TABLE chat_messages (
   id BIGSERIAL PRIMARY KEY,
   nick TEXT NOT NULL,
-  text TEXT NOT NULL,
+  text TEXT,
   ts TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  is_verified BOOLEAN DEFAULT FALSE
+  is_verified BOOLEAN DEFAULT FALSE,
+  image_url TEXT,
+  image_width INTEGER,
+  image_height INTEGER
 );
 
 -- Create player_sessions table
