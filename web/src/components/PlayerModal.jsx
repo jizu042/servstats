@@ -9,18 +9,24 @@ const SKIN_SOURCES = [
   { name: 'Ely.by', url: (nick) => `https://skinsystem.ely.by/skins/${encodeURIComponent(nick)}.png` },
   { name: 'Minotar', url: (nick) => `https://minotar.net/skin/${encodeURIComponent(nick)}` },
   { name: 'Crafatar', url: (nick) => `https://crafatar.com/skins/${encodeURIComponent(nick)}` },
-  { name: 'MC-Heads', url: (nick) => `https://mc-heads.net/skin/${encodeURIComponent(nick)}` }
+  { name: 'MC-Heads', url: (nick) => `https://mc-heads.net/skin/${encodeURIComponent(nick)}` },
+  { name: 'Steve', url: () => 'https://minotar.net/skin/Steve' }
 ]
 
 async function loadSkinWithFallback(viewer, nick) {
   for (const source of SKIN_SOURCES) {
     try {
-      await viewer.loadSkin(source.url(nick))
+      const url = source.url(nick)
+      console.log(`[PlayerModal] Trying to load skin from ${source.name}: ${url}`)
+      await viewer.loadSkin(url)
+      console.log(`[PlayerModal] Successfully loaded skin from ${source.name}`)
       return true
     } catch (err) {
+      console.log(`[PlayerModal] Failed to load from ${source.name}:`, err.message)
       continue
     }
   }
+  console.error(`[PlayerModal] All skin sources failed for ${nick}`)
   return false
 }
 
@@ -58,11 +64,14 @@ export default function PlayerModal({ nick, apiBase, host, port, sessionSince, h
     loadSkinWithFallback(viewer, nick)
       .then((success) => {
         if (!success) {
+          console.warn(`[PlayerModal] Failed to load any skin for ${nick}, showing Steve`)
           setSkinFailed(true)
-          return loadSkinWithFallback(viewer, 'Steve')
         }
       })
-      .catch(() => setSkinFailed(true))
+      .catch((err) => {
+        console.error(`[PlayerModal] Error loading skin:`, err)
+        setSkinFailed(true)
+      })
 
     const ro = new ResizeObserver(() => {
       viewer.width  = Math.min(440, canvas.parentElement?.clientWidth || 440)
