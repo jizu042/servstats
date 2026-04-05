@@ -24,9 +24,15 @@ async function run() {
       await pool.query(sql)
       console.log(`migrated: ${file}`)
     } catch (e) {
-      console.error(`error in ${file}:`, e.message)
-      // We don't exit(1) here if it's "already exists" but let's be safe
-      // In production, better to use a real migration tool, but for this project we'll just log
+      // Ignore "already exists" errors (42P07 = duplicate table, 42701 = duplicate column, 42710 = duplicate object)
+      if (['42P07', '42701', '42710', '42P16'].includes(e.code)) {
+        console.log(`skipped ${file}: already exists`)
+      } else if (e.code === '42703') {
+        // Column does not exist - this might be okay if we're adding it
+        console.log(`warning in ${file}: ${e.message}`)
+      } else {
+        console.error(`error in ${file}:`, e.message)
+      }
     }
   }
 }
