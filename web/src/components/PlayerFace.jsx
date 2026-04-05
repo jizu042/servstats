@@ -1,14 +1,9 @@
 import { useState } from 'react'
 
-const SKIN_SOURCES = [
-  { key: 'ely', url: (nick) => `https://skinsystem.ely.by/skins/${encodeURIComponent(nick)}.png`, needsCrop: true },
-  { key: 'minotar', url: (nick, size) => `https://minotar.net/helm/${encodeURIComponent(nick)}/${size}.png`, needsCrop: false },
-  { key: 'crafatar', url: (nick, size) => `https://crafatar.com/avatars/${encodeURIComponent(nick)}?size=${size}&overlay`, needsCrop: false },
-  { key: 'mcheads', url: (nick, size) => `https://mc-heads.net/avatar/${encodeURIComponent(nick)}/${size}`, needsCrop: false }
-]
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8787'
 
 export default function PlayerFace({ nick, size = 32, style = {}, onClick }) {
-  const [sourceIndex, setSourceIndex] = useState(0)
+  const [failed, setFailed] = useState(false)
 
   if (!nick || nick === 'Guest' || nick === 'System') {
     return (
@@ -26,14 +21,25 @@ export default function PlayerFace({ nick, size = 32, style = {}, onClick }) {
     )
   }
 
-  const currentSource = SKIN_SOURCES[sourceIndex]
-  const scale = size / 8
-
-  const handleError = () => {
-    if (sourceIndex < SKIN_SOURCES.length - 1) {
-      setSourceIndex(sourceIndex + 1)
-    }
+  if (failed) {
+    return (
+      <div
+        style={{
+          width: size, height: size, borderRadius: size >= 32 ? 6 : 4,
+          background: 'var(--bg-3)', color: 'var(--text-3)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: size * 0.5, fontWeight: 'bold', flexShrink: 0, ...style
+        }}
+        onClick={onClick}
+      >
+        {nick[0].toUpperCase()}
+      </div>
+    )
   }
+
+  // Use API proxy for skin (bypasses CORS)
+  const skinUrl = `${API_BASE}/api/skin/${encodeURIComponent(nick)}`
+  const scale = size / 8
 
   return (
     <div
@@ -52,15 +58,18 @@ export default function PlayerFace({ nick, size = 32, style = {}, onClick }) {
       onClick={onClick}
     >
       <img
-        src={currentSource.url(nick, size)}
-        key={currentSource.key}
+        src={skinUrl}
         alt={nick}
-        onError={handleError}
-        style={
-          currentSource.needsCrop
-            ? { width: 64 * scale, height: 64 * scale, marginLeft: -8 * scale, marginTop: -8 * scale, imageRendering: 'pixelated', display: 'block', maxWidth: 'none' }
-            : { width: size, height: size, imageRendering: 'pixelated', display: 'block' }
-        }
+        onError={() => setFailed(true)}
+        style={{
+          width: 64 * scale,
+          height: 64 * scale,
+          marginLeft: -8 * scale,
+          marginTop: -8 * scale,
+          imageRendering: 'pixelated',
+          display: 'block',
+          maxWidth: 'none'
+        }}
       />
     </div>
   )
