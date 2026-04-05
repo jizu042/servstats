@@ -100,10 +100,11 @@ export default function ChatPanel({
         )}
         {messages.map((m, i) => (
           <div className="chat-item" key={`${m.ts}-${i}-${m.nick}`}>
-            <PlayerFace 
-              nick={m.nick} 
-              size={28} 
-              style={{ flexShrink: 0, cursor: onPlayerClick ? 'pointer' : 'default', alignSelf: 'flex-start' }} 
+            <PlayerFace
+              nick={m.nick}
+              size={28}
+              style={{ flexShrink: 0, cursor: onPlayerClick ? 'pointer' : 'default', alignSelf: 'flex-start' }}
+              onClick={() => onPlayerClick?.(m.nick)}
             />
             <div className="chat-item-body">
               <div className="chat-item-head">

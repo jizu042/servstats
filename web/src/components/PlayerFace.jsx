@@ -7,7 +7,7 @@ const SKIN_SOURCES = [
   { key: 'mcheads', url: (nick, size) => `https://mc-heads.net/avatar/${encodeURIComponent(nick)}/${size}`, needsCrop: false }
 ]
 
-export default function PlayerFace({ nick, size = 32, style = {} }) {
+export default function PlayerFace({ nick, size = 32, style = {}, onClick }) {
   const [sourceIndex, setSourceIndex] = useState(0)
 
   if (!nick || nick === 'Guest' || nick === 'System') {
@@ -19,6 +19,7 @@ export default function PlayerFace({ nick, size = 32, style = {} }) {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: size * 0.5, fontWeight: 'bold', flexShrink: 0, ...style
         }}
+        onClick={onClick}
       >
         {nick ? nick[0].toUpperCase() : '?'}
       </div>
@@ -44,9 +45,11 @@ export default function PlayerFace({ nick, size = 32, style = {} }) {
         borderRadius: size >= 32 ? 6 : 4,
         flexShrink: 0,
         backgroundColor: 'var(--bg-3)',
+        cursor: onClick ? 'pointer' : 'default',
         ...style
       }}
       title={nick}
+      onClick={onClick}
     >
       <img
         src={currentSource.url(nick, size)}

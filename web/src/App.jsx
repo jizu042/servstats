@@ -242,12 +242,22 @@ export default function App() {
         <div className="sidebar-bottom">
           {me?.nick && (
             <div className="sidebar-user">
-              {me.avatar
-                ? <div className="sidebar-user-avatar-wrap">
-                    <img className="sidebar-user-avatar" src={me.avatar} alt="" />
-                  </div>
-                : <span className="sidebar-icon">👤</span>
-              }
+              {me.avatar ? (
+                <div className="sidebar-user-avatar-wrap">
+                  <img
+                    className="sidebar-user-avatar"
+                    src={me.avatar}
+                    alt=""
+                    onError={(e) => {
+                      // Fallback to default icon if avatar fails to load
+                      e.target.style.display = 'none'
+                      e.target.parentElement.innerHTML = '<span class="sidebar-icon">👤</span>'
+                    }}
+                  />
+                </div>
+              ) : (
+                <span className="sidebar-icon">👤</span>
+              )}
               <span className="sidebar-user-nick">@{me.nick}</span>
             </div>
           )}
