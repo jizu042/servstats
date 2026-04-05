@@ -1435,9 +1435,12 @@ body::after {
   overflow: hidden;
   background: #080b14;
   margin-bottom: 14px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-.skin-canvas { display: block; width: 100%; height: auto; }
+.skin-canvas { display: block; max-width: 100%; height: auto; }
 
 .skin-fallback-note {
   font-size: 12px;
