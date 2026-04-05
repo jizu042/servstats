@@ -6,29 +6,38 @@ import { fetchPlayerSessions } from '../lib/api'
 import PlayerFace from './PlayerFace'
 
 const SKIN_SOURCES = [
-  { name: 'Ely.by', url: (nick) => `https://skinsystem.ely.by/skins/${encodeURIComponent(nick)}.png` },
-  { name: 'Minotar', url: (nick) => `https://minotar.net/skin/${encodeURIComponent(nick)}` },
-  { name: 'Crafatar', url: (nick) => `https://crafatar.com/skins/${encodeURIComponent(nick)}` },
-  { name: 'MC-Heads', url: (nick) => `https://mc-heads.net/skin/${encodeURIComponent(nick)}` },
-  { name: 'Steve', url: () => 'https://minotar.net/skin/Steve' }
+  { name: 'Ely.by', url: (nick) => `https://skinsystem.ely.by/skins/${encodeURIComponent(nick)}.png` }
 ]
 
 async function loadSkinWithFallback(viewer, nick) {
-  for (const source of SKIN_SOURCES) {
-    try {
-      const url = source.url(nick)
-      console.log(`[PlayerModal] Trying to load skin from ${source.name}: ${url}`)
+  const source = SKIN_SOURCES[0]
+  try {
+    const url = source.url(nick)
+    console.log(`[PlayerModal] Loading skin from ${source.name}: ${url}`)
 
-      await viewer.loadSkin(url)
-      console.log(`[PlayerModal] ✅ Successfully loaded skin from ${source.name}`)
+    // First check if the URL is accessible
+    const response = await fetch(url, { method: 'GET', mode: 'cors' })
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    await viewer.loadSkin(url)
+    console.log(`[PlayerModal] ✅ Successfully loaded skin from ${source.name}`)
+    return true
+  } catch (err) {
+    console.error(`[PlayerModal] ❌ Failed to load from ${source.name}:`, err.message || err)
+    // Try with HTTPS prefix if it's a CORS issue
+    try {
+      const httpsUrl = `https://skinsystem.ely.by/skins/${encodeURIComponent(nick)}.png`
+      console.log(`[PlayerModal] Retrying with explicit HTTPS: ${httpsUrl}`)
+      await viewer.loadSkin(httpsUrl)
+      console.log(`[PlayerModal] ✅ Successfully loaded skin on retry`)
       return true
-    } catch (err) {
-      console.log(`[PlayerModal] ❌ Failed to load from ${source.name}:`, err.message)
-      continue
+    } catch (retryErr) {
+      console.error(`[PlayerModal] ❌ Retry also failed:`, retryErr.message || retryErr)
+      return false
     }
   }
-  console.error(`[PlayerModal] All skin sources failed for ${nick}`)
-  return false
 }
 
 function formatDuration(ms) {
