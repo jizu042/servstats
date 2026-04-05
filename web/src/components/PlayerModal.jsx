@@ -5,38 +5,18 @@ import { fetchPlayerSessions } from '../lib/api'
 
 import PlayerFace from './PlayerFace'
 
-const SKIN_SOURCES = [
-  { name: 'Ely.by', url: (nick) => `https://skinsystem.ely.by/skins/${encodeURIComponent(nick)}.png` }
-]
-
-async function loadSkinWithFallback(viewer, nick) {
-  const source = SKIN_SOURCES[0]
+async function loadSkinWithFallback(viewer, nick, apiBase) {
   try {
-    const url = source.url(nick)
-    console.log(`[PlayerModal] Loading skin from ${source.name}: ${url}`)
-
-    // First check if the URL is accessible
-    const response = await fetch(url, { method: 'GET', mode: 'cors' })
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`)
-    }
+    // Use API proxy to bypass CORS
+    const url = `${apiBase}/api/skin/${encodeURIComponent(nick)}`
+    console.log(`[PlayerModal] Loading skin via proxy: ${url}`)
 
     await viewer.loadSkin(url)
-    console.log(`[PlayerModal] ✅ Successfully loaded skin from ${source.name}`)
+    console.log(`[PlayerModal] ✅ Successfully loaded skin via proxy`)
     return true
   } catch (err) {
-    console.error(`[PlayerModal] ❌ Failed to load from ${source.name}:`, err.message || err)
-    // Try with HTTPS prefix if it's a CORS issue
-    try {
-      const httpsUrl = `https://skinsystem.ely.by/skins/${encodeURIComponent(nick)}.png`
-      console.log(`[PlayerModal] Retrying with explicit HTTPS: ${httpsUrl}`)
-      await viewer.loadSkin(httpsUrl)
-      console.log(`[PlayerModal] ✅ Successfully loaded skin on retry`)
-      return true
-    } catch (retryErr) {
-      console.error(`[PlayerModal] ❌ Retry also failed:`, retryErr.message || retryErr)
-      return false
-    }
+    console.error(`[PlayerModal] ❌ Failed to load skin:`, err.message || err)
+    return false
   }
 }
 
@@ -71,7 +51,7 @@ export default function PlayerModal({ nick, apiBase, host, port, sessionSince, h
     viewerRef.current = viewer
     setSkinFailed(false)
 
-    loadSkinWithFallback(viewer, nick)
+    loadSkinWithFallback(viewer, nick, apiBase)
       .then((success) => {
         if (!success) {
           console.warn(`[PlayerModal] Failed to load any skin for ${nick}, showing Steve`)
@@ -90,7 +70,7 @@ export default function PlayerModal({ nick, apiBase, host, port, sessionSince, h
     if (canvas.parentElement) ro.observe(canvas.parentElement)
 
     return () => { ro.disconnect(); viewer.dispose(); viewerRef.current = null }
-  }, [nick])
+  }, [nick, apiBase])
 
   // Load DB sessions
   useEffect(() => {

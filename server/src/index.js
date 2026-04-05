@@ -291,6 +291,43 @@ app.post('/api/logout', (_req, res) => {
   res.json({ ok: true })
 })
 
+// ── Skin proxy (bypass CORS) ────────────────────────────────────────────────
+app.get('/api/skin/:nick', async (req, res) => {
+  const nick = req.params.nick
+  if (!nick) return res.status(400).send('nick is required')
+
+  try {
+    // Try Ely.by first
+    const elyUrl = `https://skinsystem.ely.by/skins/${encodeURIComponent(nick)}.png`
+    const elyRes = await fetch(elyUrl)
+
+    if (elyRes.ok) {
+      const buffer = await elyRes.arrayBuffer()
+      res.setHeader('Content-Type', 'image/png')
+      res.setHeader('Cache-Control', 'public, max-age=3600')
+      res.setHeader('Access-Control-Allow-Origin', '*')
+      return res.send(Buffer.from(buffer))
+    }
+
+    // Fallback to Minotar
+    const minотarUrl = `https://minotar.net/skin/${encodeURIComponent(nick)}`
+    const minотarRes = await fetch(minотarUrl)
+
+    if (minотarRes.ok) {
+      const buffer = await minотarRes.arrayBuffer()
+      res.setHeader('Content-Type', 'image/png')
+      res.setHeader('Cache-Control', 'public, max-age=3600')
+      res.setHeader('Access-Control-Allow-Origin', '*')
+      return res.send(Buffer.from(buffer))
+    }
+
+    res.status(404).send('Skin not found')
+  } catch (err) {
+    console.error('[skin-proxy] error:', err.message)
+    res.status(500).send('Failed to fetch skin')
+  }
+})
+
 // ── Stats history ────────────────────────────────────────────────────────────
 app.get('/api/stats/history', async (req, res) => {
   const host  = String(req.query.host || '').trim()
