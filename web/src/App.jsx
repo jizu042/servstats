@@ -139,8 +139,13 @@ export default function App() {
         try {
           const msg = JSON.parse(event.data)
           setChat((prev) => {
-            const last = prev[prev.length - 1]
-            if (last && last.nick === msg.nick && last.text === msg.text && last.ts === msg.ts) {
+            // Check if message already exists (by nick, text, and timestamp)
+            const exists = prev.some(m =>
+              m.nick === msg.nick &&
+              m.text === msg.text &&
+              Math.abs(m.ts - msg.ts) < 1000 // Within 1 second
+            )
+            if (exists) {
               return prev
             }
             return [...prev, msg].slice(-200)
