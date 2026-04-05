@@ -52,30 +52,49 @@ app.get('/api/status', async (req, res) => {
     if (hasDb && pool) {
       await ensureServer({ host: data.host, port: data.port })
       const serverId = await getServerId(data.host, data.port)
-      if (serverId && data.online) {
-        // Walk backwards from latest sample to find start of current online streak
-        const uptimeRes = await pool.query(
-          `SELECT ts, online FROM server_samples
-           WHERE server_id = $1
-           ORDER BY ts DESC LIMIT 200`,
-          [serverId]
-        )
 
-        if (uptimeRes.rows.length > 0) {
-          let onlineSince = Date.now()
-          for (const row of uptimeRes.rows) {
-            if (!row.online) break
-            onlineSince = new Date(row.ts).getTime()
+      if (serverId) {
+        if (data.online) {
+          // Server is online - find start of current online streak
+          const uptimeRes = await pool.query(
+            `SELECT ts, online FROM server_samples
+             WHERE server_id = $1
+             ORDER BY ts DESC LIMIT 300`,
+            [serverId]
+          )
+
+          if (uptimeRes.rows.length > 0) {
+            let onlineSince = Date.now()
+            let foundOffline = false
+
+            // Walk backwards to find the start of online streak
+            for (const row of uptimeRes.rows) {
+              if (!row.online) {
+                foundOffline = true
+                break
+              }
+              onlineSince = new Date(row.ts).getTime()
+            }
+
+            // If all samples are online, use the oldest sample time
+            data.onlineSince = onlineSince
+            console.log(`[status] ${host}:${port} online since ${new Date(onlineSince).toISOString()} (${foundOffline ? 'found offline' : 'all samples online'})`)
+          } else {
+            // No samples yet - server just came online
+            data.onlineSince = Date.now()
+            console.log(`[status] ${host}:${port} no samples yet, using current time`)
           }
-          data.onlineSince = onlineSince
-          console.log(`[status] ${host}:${port} online since ${new Date(onlineSince).toISOString()}`)
         } else {
-          // No samples yet, assume just came online
-          data.onlineSince = Date.now()
+          // Server is offline
+          data.onlineSince = null
         }
       } else {
-        data.onlineSince = null
+        // Server not in DB yet
+        data.onlineSince = data.online ? Date.now() : null
       }
+    } else {
+      // No DB - use current time if online
+      data.onlineSince = data.online ? Date.now() : null
     }
     res.json(data)
   } catch (e) {

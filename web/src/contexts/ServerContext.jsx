@@ -62,30 +62,20 @@ export function ServerProvider({ children }) {
     document.documentElement.setAttribute('data-theme', settings.theme)
   }, [settings.theme])
 
-  // Reset stats/sessions on server change
+  // Reset stats/sessions on server change - load from DB, not localStorage
   useEffect(() => {
-    const sk = statsKey(hostPort)
-    const sessK = sessionsKey(hostPort)
-    setStats(readJson(sk, defaultStats()))
+    // Don't use localStorage for stats anymore - will be loaded from DB
+    setStats(defaultStats())
   }, [hostPort])
 
-  // Persist sessions to localStorage
-  useEffect(() => {
-    const sessK = sessionsKey(hostPort)
-    writeJson(sessK, sessions)
-  }, [sessions, hostPort])
+  // Don't persist sessions to localStorage anymore - use DB only
+  // useEffect(() => {
+  //   const sessK = sessionsKey(hostPort)
+  //   writeJson(sessK, sessions)
+  // }, [sessions, hostPort])
 
-  // Update stats with real-time data (minimal buffer for smooth rendering)
-  useEffect(() => {
-    if (server?.online) {
-      setStats((old) => {
-        const point = { t: Date.now(), v: Number(server?.players?.online || 0) }
-        const history24h = [...(old.history24h || []), point].slice(-24 * 60 * 6)
-        const peak = Math.max(old.peak || 0, point.v)
-        return { ...old, history24h, peak }
-      })
-    }
-  }, [server])
+  // Don't update stats with real-time data - use DB data only
+  // Stats will be loaded from API in App.jsx when stats tab is opened
 
   const updateSettings = (patch) => {
     setSettings((s) => ({ ...s, ...patch }))

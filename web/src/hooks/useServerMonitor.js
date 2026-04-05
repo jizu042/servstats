@@ -18,11 +18,11 @@ export function useServerMonitor({ host, port, pollIntervalSec, apiSource, notif
   const pollPrimedRef = useRef(false)
   const hostPort = `${host}:${port}`
 
-  // Restore onlineSince from localStorage
-  useEffect(() => {
-    const since = localStorage.getItem(getOnlineSinceKey(hostPort))
-    setOnlineSince(since ? Number(since) : null)
-  }, [hostPort])
+  // Restore onlineSince from localStorage - REMOVED, now using DB data only
+  // useEffect(() => {
+  //   const since = localStorage.getItem(getOnlineSinceKey(hostPort))
+  //   setOnlineSince(since ? Number(since) : null)
+  // }, [hostPort])
 
   // Polling logic
   useEffect(() => {
@@ -45,13 +45,14 @@ export function useServerMonitor({ host, port, pollIntervalSec, apiSource, notif
         setServer(data)
         setError(null)
 
-        // Update onlineSince
+        // Update onlineSince - always use DB data, never localStorage
         if (typeof data.onlineSince === 'number') {
           setOnlineSince(data.onlineSince)
-          localStorage.setItem(getOnlineSinceKey(hostPort), String(data.onlineSince))
+        } else if (data.online) {
+          // Server is online but no onlineSince from DB - use current time as fallback
+          setOnlineSince(Date.now())
         } else {
           setOnlineSince(null)
-          localStorage.removeItem(getOnlineSinceKey(hostPort))
         }
 
         // Notify on status change (offline → online)
