@@ -48,12 +48,24 @@ app.get('/api/status', async (req, res) => {
   try {
     let data = await getServerStatus({ host, port, source })
 
-    // DB: compute real onlineSince from server_samples
+    // DB: save sample and compute real onlineSince from server_samples
     if (hasDb && pool) {
       await ensureServer({ host: data.host, port: data.port })
       const serverId = await getServerId(data.host, data.port)
 
       if (serverId) {
+        // Save current sample to DB (auto-collect without worker)
+        try {
+          await pool.query(
+            `INSERT INTO server_samples(server_id, ts, online, players_online, players_max, ping_ms, source)
+             VALUES($1, NOW(), $2, $3, $4, $5, $6)`,
+            [serverId, data.online, data.players.online, data.players.max, data.ping, data.source]
+          )
+          console.log(`[status] sample saved: ${host}:${port} online=${data.online} players=${data.players.online}`)
+        } catch (err) {
+          console.error(`[status] failed to save sample:`, err.message)
+        }
+
         if (data.online) {
           // Server is online - find start of current online streak
           const uptimeRes = await pool.query(
@@ -83,6 +95,34 @@ app.get('/api/status', async (req, res) => {
             // No samples yet - server just came online
             data.onlineSince = Date.now()
             console.log(`[status] ${host}:${port} no samples yet, using current time`)
+          }
+
+          // Track player sessions (simple version without worker)
+          if (data.players.list && data.players.list.length > 0) {
+            try {
+              for (const nick of data.players.list) {
+                if (!nick || !nick.trim()) continue
+
+                // Check if player already has an open session
+                const existingSession = await pool.query(
+                  `SELECT id FROM player_sessions
+                   WHERE server_id = $1 AND nick = $2 AND ended_at IS NULL`,
+                  [serverId, nick]
+                )
+
+                if (existingSession.rows.length === 0) {
+                  // Open new session
+                  await pool.query(
+                    `INSERT INTO player_sessions(server_id, nick, started_at)
+                     VALUES($1, $2, NOW())`,
+                    [serverId, nick]
+                  )
+                  console.log(`[status] session opened: ${nick}`)
+                }
+              }
+            } catch (err) {
+              console.error(`[status] failed to track sessions:`, err.message)
+            }
           }
         } else {
           // Server is offline

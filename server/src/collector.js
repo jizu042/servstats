@@ -1,6 +1,6 @@
 import util from 'minecraft-server-util'
 
-const interval      = Number(process.env.POLL_INTERVAL_MS || 14 * 60 * 1000) // Default: 14 mins
+const interval      = Number(process.env.POLL_INTERVAL_MS || 5 * 60 * 1000) // Default: 5 mins (improved from 14)
 const timeout       = Number(process.env.POLL_TIMEOUT_MS  || 8000)
 const apiPreference = String(process.env.API_SOURCE_PREFERENCE || 'auto')
 const retentionDays = Math.max(1, Number(process.env.STATS_RAW_RETENTION_DAYS || 30))
@@ -154,6 +154,7 @@ async function getServerStatus({ host, port, source, timeout: ms }) {
   const sources = []
   if (source === 'auto' || source === 'ismcserver') sources.push(fromIsmc(host, port, ms).then(r => normalizeIsmc(r, host, port)).catch(() => null))
   if (source === 'auto' || source === 'mcstatus')   sources.push(fromMcstatus(host, port, ms).then(r => normalizeMcstatus(r, host, port)).catch(() => null))
+  if (source === 'auto' || source === 'mcsrvstat')  sources.push(fromMcsrvstat(host, port, ms).then(r => normalizeMcsrvstat(r, host, port)).catch(() => null))
 
   const results = await Promise.all(sources)
   const external = results.find(r => r && r.online)
@@ -184,6 +185,15 @@ async function fromMcstatus(host, port, timeoutMs) {
     { signal: AbortSignal.timeout(timeoutMs) }
   )
   if (!r.ok) throw new Error(`mcstatus ${r.status}`)
+  return r.json()
+}
+
+async function fromMcsrvstat(host, port, timeoutMs) {
+  const r = await fetch(
+    `https://api.mcsrvstat.us/3/${encodeURIComponent(host)}:${encodeURIComponent(port)}`,
+    { signal: AbortSignal.timeout(timeoutMs) }
+  )
+  if (!r.ok) throw new Error(`mcsrvstat ${r.status}`)
   return r.json()
 }
 
@@ -225,6 +235,17 @@ function normalizeMcstatus(raw, host, port) {
     port:    raw?.port || port,
     ping:    raw?.latency ?? raw?.ping ?? null,
     players: buildPlayers({ online: raw?.players?.online, max: raw?.players?.max })
+  }
+}
+
+function normalizeMcsrvstat(raw, host, port) {
+  return {
+    source:  'mcsrvstat',
+    online:  Boolean(raw?.online),
+    host:    raw?.hostname || host,
+    port:    raw?.port || port,
+    ping:    null,
+    players: buildPlayers({ online: raw?.players?.online, max: raw?.players?.max, list: raw?.players?.list })
   }
 }
 
