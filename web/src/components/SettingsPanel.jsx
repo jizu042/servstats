@@ -7,7 +7,32 @@ export default function SettingsPanel({ settings, onChange, onAskNotifications, 
         <div className="settings-section-title">Аккаунт</div>
         {me?.nick ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0' }}>
-            {me.avatar && <img src={me.avatar} alt="" style={{ width: 36, height: 36, borderRadius: 8, border: '1px solid var(--purple-ring)' }} />}
+            {me.avatar && (
+              <div style={{
+                width: 36,
+                height: 36,
+                borderRadius: 8,
+                border: '1px solid var(--purple-ring)',
+                overflow: 'hidden',
+                background: 'var(--bg-3)',
+                flexShrink: 0
+              }}>
+                <img
+                  src={me.avatar}
+                  alt=""
+                  style={{
+                    width: 288,
+                    height: 288,
+                    marginLeft: -72,
+                    marginTop: -72,
+                    imageRendering: 'pixelated',
+                    display: 'block',
+                    transform: 'scale(0.125)',
+                    transformOrigin: 'top left'
+                  }}
+                />
+              </div>
+            )}
             <div>
               <div style={{ fontWeight: 600, fontSize: 14 }}>@{me.nick}</div>
               <div style={{ fontSize: 12, color: 'var(--text-3)' }}>Ely.by аккаунт</div>

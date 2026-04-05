@@ -212,10 +212,14 @@ app.get('/api/auth/ely/callback', async (req, res) => {
 app.get('/api/me', (req, res) => {
   const user = getUserFromRequest(req)
   if (!user) return res.json({ authenticated: false })
+
+  // Use Ely.by avatar for authenticated users (better quality)
+  const avatar = `https://skinsystem.ely.by/skins/${encodeURIComponent(user.nick)}.png`
+
   res.json({
     authenticated: true,
     nick:   user.nick,
-    avatar: `https://minotar.net/helm/${encodeURIComponent(user.nick)}/64.png`
+    avatar: avatar
   })
 })
 

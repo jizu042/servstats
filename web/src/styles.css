@@ -373,13 +373,25 @@ body::after {
   overflow: hidden;
 }
 
-.sidebar-user-avatar {
+.sidebar-user-avatar-wrap {
   width: 30px;
   height: 30px;
   border-radius: var(--radius-xs);
-  object-fit: cover;
+  overflow: hidden;
   flex-shrink: 0;
+  background: var(--bg-3);
   border: 1px solid var(--purple-ring);
+}
+
+.sidebar-user-avatar {
+  width: 240px;
+  height: 240px;
+  margin-left: -60px;
+  margin-top: -60px;
+  image-rendering: pixelated;
+  display: block;
+  transform: scale(0.125);
+  transform-origin: top left;
 }
 
 .sidebar-user-nick {

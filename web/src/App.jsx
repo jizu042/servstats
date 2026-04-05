@@ -243,7 +243,9 @@ export default function App() {
           {me?.nick && (
             <div className="sidebar-user">
               {me.avatar
-                ? <img className="sidebar-user-avatar" src={me.avatar} alt="" />
+                ? <div className="sidebar-user-avatar-wrap">
+                    <img className="sidebar-user-avatar" src={me.avatar} alt="" />
+                  </div>
                 : <span className="sidebar-icon">👤</span>
               }
               <span className="sidebar-user-nick">@{me.nick}</span>
